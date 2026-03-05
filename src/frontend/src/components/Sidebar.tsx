@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/utils/format";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
+  BarChart2,
   Briefcase,
   History,
   LayoutDashboard,
@@ -13,8 +14,10 @@ import {
   Loader2,
   LogIn,
   LogOut,
+  ShieldCheck,
   Star,
   TrendingUp,
+  Wallet,
 } from "lucide-react";
 
 const NAV_LINKS = [
@@ -29,6 +32,12 @@ const NAV_LINKS = [
     label: "Markets",
     icon: LineChart,
     ocid: "nav.markets.link",
+  },
+  {
+    to: "/charts",
+    label: "Charts",
+    icon: BarChart2,
+    ocid: "nav.charts.link",
   },
   {
     to: "/portfolio",
@@ -47,6 +56,18 @@ const NAV_LINKS = [
     label: "Watchlist",
     icon: Star,
     ocid: "nav.watchlist.link",
+  },
+  {
+    to: "/kyc",
+    label: "KYC / Verify",
+    icon: ShieldCheck,
+    ocid: "nav.kyc.link",
+  },
+  {
+    to: "/payments",
+    label: "Payments",
+    icon: Wallet,
+    ocid: "nav.payments.link",
   },
 ];
 

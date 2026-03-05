@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-const TV_SYMBOL_MAP: Record<string, string> = {
+export const TV_SYMBOL_MAP: Record<string, string> = {
   BTC: "BINANCE:BTCUSDT",
   ETH: "BINANCE:ETHUSDT",
   SOL: "BINANCE:SOLUSDT",
@@ -34,11 +34,15 @@ const TV_SYMBOL_MAP: Record<string, string> = {
 interface TradingViewChartProps {
   symbol: string;
   height?: number;
+  interval?: string;
+  hideToolbars?: boolean;
 }
 
 export function TradingViewChart({
   symbol,
   height = 400,
+  interval = "D",
+  hideToolbars = false,
 }: TradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -68,22 +72,22 @@ export function TradingViewChart({
         new win.TradingView.widget({
           container_id: containerId,
           symbol: tvSymbol,
-          interval: "D",
+          interval: interval,
           timezone: "Etc/UTC",
           theme: "dark",
           style: "1",
           locale: "en",
           toolbar_bg: "#0a0a0a",
           enable_publishing: false,
-          hide_top_toolbar: false,
-          hide_legend: false,
+          hide_top_toolbar: hideToolbars,
+          hide_legend: hideToolbars,
           save_image: false,
           height: height,
           width: "100%",
           backgroundColor: "rgba(10, 10, 15, 1)",
           gridColor: "rgba(255, 255, 255, 0.04)",
-          withdateranges: true,
-          hide_side_toolbar: false,
+          withdateranges: !hideToolbars,
+          hide_side_toolbar: hideToolbars,
           allow_symbol_change: false,
         });
       } catch {
@@ -120,7 +124,7 @@ export function TradingViewChart({
         container.innerHTML = "";
       }
     };
-  }, [symbol, tvSymbol, height]);
+  }, [symbol, tvSymbol, interval, hideToolbars, height]);
 
   if (!tvSymbol) {
     return (

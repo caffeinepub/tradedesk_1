@@ -1,39 +1,37 @@
 # TradeDesk
 
 ## Current State
-- Full-stack trading simulation with Motoko backend + React frontend
-- Backend stores 28 assets (crypto, stocks, metals, indices) with hardcoded/simulated prices that increment slightly on each `getAllAssets()` call
-- Frontend polls backend every 10s for prices
-- Markets page shows asset list with search, category filter tabs, trade/watchlist actions
-- No real market data; no charts
+- Payments page has 4 deposit methods (Card, Bank Wire, Crypto, E-Wallet) and 4 withdrawal methods
+- Transaction history shows static sample data
+- There is a "KYC Required" badge on the withdrawal tab header but no actual KYC flow
+- Backend has authorization, user profiles, balance, portfolio, trade history, and watchlist
 
 ## Requested Changes (Diff)
 
 ### Add
-- **Live price fetching** from public free APIs in the frontend:
-  - Crypto: Binance REST API (`api.binance.com/api/v3/ticker/24hr`) for BTC, ETH, SOL, BNB, XRP, ADA, DOT, AVAX, LINK, LTC, DOGE, UNI, MATIC
-  - Metals: Metals.live free API or fallback to a metals price proxy
-  - Stocks & Indices: Yahoo Finance unofficial proxy (`query1.finance.yahoo.com/v8/finance/chart/`)
-- **`useLivePrices` hook** that fetches live prices every 30s and returns a map of `symbol -> { price, change24h }`
-- **Live price overlay** on the Markets page: replace backend prices with live data when available, showing a "LIVE" badge
-- **TradingView Advanced Chart widget** embedded in the trade modal -- shows a real-time chart for the selected asset using TradingView's free embeddable widget iframe
-- **TradingView Mini Chart widget** as an optional quick-view in the Markets table row or asset detail popover
-- **Price staleness indicator**: show "LIVE" green badge when live data is loaded, "SIM" amber badge when falling back to backend simulation
+- UPI payment method as a new deposit and withdrawal option (5th method in each panel)
+  - UPI-specific form: UPI ID input field (e.g. name@upi), QR code display placeholder, virtual payment address
+  - Processing time: Instant, fee: Free, limits: min ₹100 / max ₹100,000
+- Full KYC verification flow accessible from Payments page and a new KYC page/section
+  - KYC steps: Personal Info (name, DOB, nationality, address), ID Verification (upload govt ID front/back), Selfie Verification (selfie with ID), Review & Submit
+  - KYC status levels: Unverified, Pending, Level 1 (basic), Level 2 (full)
+  - KYC banner/prompt in payments page when status is unverified or pending
+  - KYC unlocks higher deposit/withdrawal limits
+  - Backend: submitKYC, getKYCStatus functions to store KYC data per user
+- KYC page added to sidebar navigation
 
 ### Modify
-- `TradeModal` component: add a TradingView chart section above the buy/sell form
-- `Markets.tsx`: use live prices from `useLivePrices` hook, overlay on backend asset data
-- `Dashboard.tsx`: use live prices for watchlist and portfolio value display
-- `useAllAssets` hook: merge backend asset metadata (name, category) with live price data from `useLivePrices`
+- Payments page: Add UPI as 5th payment method card in both deposit and withdrawal grids
+- UPI deposit panel: show UPI ID input, virtual payment address instructions
+- Backend: add KYC status types and submitKYC / getKYCStatus functions
 
 ### Remove
-- Nothing removed; backend simulation remains as fallback when live data is unavailable
+- Nothing removed
 
 ## Implementation Plan
-1. Create `src/frontend/src/hooks/useLivePrices.ts` -- fetches Binance (crypto), Yahoo Finance proxy (stocks/indices), and metals API; merges into a `Record<string, {price: number, change24h: number}>` map; polls every 30s
-2. Create `src/frontend/src/components/TradingViewChart.tsx` -- renders a TradingView Advanced Chart widget iframe for a given symbol, with symbol mapping (e.g. BTC -> BINANCE:BTCUSDT, AAPL -> NASDAQ:AAPL)
-3. Create `src/frontend/src/components/TradingViewMiniChart.tsx` -- renders TradingView mini chart widget
-4. Modify `Markets.tsx` -- import `useLivePrices`, overlay live price/change24h onto assets, show LIVE/SIM badge in header
-5. Modify `Dashboard.tsx` -- import `useLivePrices`, overlay live prices for watchlist and portfolio
-6. Modify `TradeModal.tsx` -- add TradingViewChart component above the trade form, collapsible
-7. Validate typecheck + build
+1. Update backend main.mo to add KYCStatus type, KYCSubmission type, per-user KYC storage, submitKYC and getKYCStatus functions
+2. Add UPI payment method to DEPOSIT_METHODS and WITHDRAW_METHODS arrays with UPI-specific form UI
+3. Create KYC.tsx page with step-by-step KYC wizard (Personal Info -> ID Upload -> Selfie -> Review)
+4. Add KYC status banner to Payments page that links to KYC flow
+5. Add KYC navigation item to sidebar
+6. Wire KYC status from backend to payment limits and badge display
