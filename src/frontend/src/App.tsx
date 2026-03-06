@@ -1,4 +1,6 @@
 import { AppLayout } from "@/components/AppLayout";
+import { AccountModeProvider } from "@/context/AccountModeContext";
+import { DemoAccountProvider } from "@/context/DemoAccountContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { Charts } from "@/pages/Charts";
 import { Dashboard } from "@/pages/Dashboard";
@@ -134,7 +136,11 @@ declare module "@tanstack/react-router" {
 export default function App() {
   return (
     <ThemeProvider>
-      <RouterProvider router={router} />
+      <AccountModeProvider>
+        <DemoAccountProvider>
+          <RouterProvider router={router} />
+        </DemoAccountProvider>
+      </AccountModeProvider>
     </ThemeProvider>
   );
 }

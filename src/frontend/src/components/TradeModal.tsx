@@ -21,8 +21,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAccountMode } from "@/context/AccountModeContext";
+import { useDemoAccount } from "@/context/DemoAccountContext";
+import { useInternetIdentity } from "@/hooks/useInternetIdentity";
 import { useLivePrices } from "@/hooks/useLivePrices";
-import { useBuy, useSell } from "@/hooks/useQueries";
+import { useBalance, useBuy, useSell } from "@/hooks/useQueries";
 import { formatChange, formatCurrency } from "@/utils/format";
 import {
   AlertTriangle,
@@ -64,8 +66,13 @@ export function TradeModal({
   const buy = useBuy();
   const sell = useSell();
   const { data: livePrices } = useLivePrices();
+  const { data: balance } = useBalance();
   const { accountMode, setAccountMode } = useAccountMode();
+  const { login, identity } = useInternetIdentity();
+  const isLoggedIn = !!identity;
   const isRealAccount = accountMode === "real";
+  const isDemoMode = accountMode === "demo";
+  const { demoBalance, demoBuy, demoSell } = useDemoAccount();
 
   const confirmSwitchToReal = () => {
     setAccountMode("real");
@@ -94,6 +101,40 @@ export function TradeModal({
   const handleSubmit = async () => {
     if (!asset || qty <= 0) {
       toast.error("Enter a valid quantity");
+      return;
+    }
+
+    // Demo mode: local simulation, no login needed
+    if (isDemoMode) {
+      let err: string | null = null;
+      if (side === "buy") {
+        err = demoBuy(asset.symbol, qty, displayPrice);
+        if (!err) {
+          toast.success(`[DEMO] Bought ${qty} ${asset.symbol}`, {
+            description: `Total: ${formatCurrency(estimatedTotal)}`,
+          });
+        }
+      } else {
+        err = demoSell(asset.symbol, qty, displayPrice);
+        if (!err) {
+          toast.success(`[DEMO] Sold ${qty} ${asset.symbol}`, {
+            description: `Total: ${formatCurrency(estimatedTotal)}`,
+          });
+        }
+      }
+      if (err) {
+        toast.error("Demo trade failed", { description: err });
+        return;
+      }
+      setQuantity("");
+      setShowConfirm(false);
+      onClose();
+      return;
+    }
+
+    // Real mode: require login
+    if (!isLoggedIn) {
+      login();
       return;
     }
     try {
@@ -443,6 +484,30 @@ export function TradeModal({
                 transition={{ duration: 0.2, ease: "easeOut" }}
                 className="space-y-4"
               >
+                {/* Demo balance display */}
+                {isDemoMode && (
+                  <div className="flex items-center justify-between rounded-md bg-muted/30 border border-border px-3 py-2">
+                    <span className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+                      Demo Balance
+                    </span>
+                    <span className="font-mono text-sm font-semibold text-[oklch(0.72_0.14_260)] tabular-nums">
+                      {formatCurrency(demoBalance)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Real account balance */}
+                {isRealAccount && isLoggedIn && (
+                  <div className="flex items-center justify-between rounded-md bg-muted/30 border border-border px-3 py-2">
+                    <span className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+                      Available
+                    </span>
+                    <span className="font-mono text-sm font-semibold text-foreground tabular-nums">
+                      {formatCurrency(balance ?? 0)}
+                    </span>
+                  </div>
+                )}
+
                 {/* Live account warning */}
                 {isRealAccount && (
                   <div
@@ -544,15 +609,26 @@ export function TradeModal({
                   </Button>
                   <Button
                     data-ocid="trade.submit_button"
-                    onClick={() => setShowConfirm(true)}
-                    disabled={isPending || qty <= 0}
+                    onClick={() => {
+                      if (!isDemoMode && !isLoggedIn) {
+                        login();
+                      } else if (qty > 0) {
+                        setShowConfirm(true);
+                      }
+                    }}
+                    disabled={
+                      isPending ||
+                      (isDemoMode ? qty <= 0 : isLoggedIn ? qty <= 0 : false)
+                    }
                     className={`flex-1 font-mono font-semibold ${
                       side === "buy"
                         ? "bg-profit hover:bg-profit/90 text-background"
                         : "bg-sell hover:bg-sell/90 text-background"
                     }`}
                   >
-                    {`${side.toUpperCase()} ${asset?.symbol || ""}`}
+                    {!isDemoMode && !isLoggedIn
+                      ? "Sign In to Trade"
+                      : `${side.toUpperCase()} ${asset?.symbol || ""}`}
                   </Button>
                 </DialogFooter>
               </motion.div>

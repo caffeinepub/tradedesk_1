@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { useAccountMode } from "@/context/AccountModeContext";
+import { useDemoAccount } from "@/context/DemoAccountContext";
 import { useInternetIdentity } from "@/hooks/useInternetIdentity";
 import { useLivePrices } from "@/hooks/useLivePrices";
 import {
@@ -100,6 +101,10 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
   const isPending = buy.isPending || sell.isPending;
   const { accountMode, setAccountMode } = useAccountMode();
   const isRealAccount = accountMode === "real";
+  const isDemoMode = accountMode === "demo";
+
+  const { demoBalance, demoPortfolio, demoTrades, demoBuy, demoSell } =
+    useDemoAccount();
 
   const confirmSwitchToReal = () => {
     setAccountMode("real");
@@ -123,10 +128,6 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
 
   const qty = Number.parseFloat(quantity) || 0;
   const estimatedTotal = qty * effectivePrice;
-
-  // Holdings for this symbol
-  const holding = portfolio?.find((p) => p.symbol === symbol);
-  const heldQty = holding?.quantity ?? 0;
 
   // Sync limit price when switching to limit or symbol changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: symbol is a prop used as a reset trigger
@@ -169,7 +170,16 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
 
   const isIndex = INDEX_SYMBOLS.has(symbol);
 
-  const availableBalance = balance ?? 0;
+  // In demo mode, use demo balance/portfolio/trades; in real mode use backend data
+  const effectiveBalance = isDemoMode ? demoBalance : (balance ?? 0);
+  const effectivePortfolio = isDemoMode ? demoPortfolio : (portfolio ?? []);
+  const effectiveTrades = isDemoMode ? demoTrades : (trades ?? []);
+
+  // Holdings for this symbol
+  const holding = effectivePortfolio.find((p) => p.symbol === symbol);
+  const heldQty = holding?.quantity ?? 0;
+
+  const availableBalance = effectiveBalance;
 
   const setPercentBuy = (pct: number) => {
     if (displayPrice <= 0) return;
@@ -223,6 +233,65 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
       : null;
 
   const handleSubmit = async () => {
+    // In demo mode, no login needed - use local simulation
+    if (isDemoMode) {
+      if (qty <= 0) {
+        toast.error("Enter a valid quantity");
+        return;
+      }
+      let err: string | null = null;
+      if (side === "buy") {
+        err = demoBuy(symbol, qty, effectivePrice);
+        if (!err) {
+          toast.success(`[DEMO] Bought ${qty} ${symbol}`, {
+            description: `Total: ${formatCurrency(estimatedTotal)}`,
+          });
+        }
+      } else {
+        err = demoSell(symbol, qty, effectivePrice);
+        if (!err) {
+          toast.success(`[DEMO] Sold ${qty} ${symbol}`, {
+            description: `Total: ${formatCurrency(estimatedTotal)}`,
+          });
+        }
+      }
+      if (err) {
+        toast.error("Demo trade failed", { description: err });
+        return;
+      }
+      setSuccessInfo({ side, qty, total: estimatedTotal });
+      setShowConfirm(false);
+
+      // Fire order lines callback if SL or TP is active
+      if (onOrderPlaced && (slEnabled || tpEnabled)) {
+        const stopLossValue = slEnabled
+          ? slMode === "trailing"
+            ? effectiveTrailSL > 0
+              ? effectiveTrailSL
+              : null
+            : slVal > 0
+              ? slVal
+              : null
+          : null;
+        onOrderPlaced({
+          symbol,
+          side,
+          entryPrice: effectivePrice,
+          stopLoss: stopLossValue,
+          takeProfit: tpEnabled && tpVal > 0 ? tpVal : null,
+          trailingSL:
+            slMode === "trailing"
+              ? { distance: trailDistNum, type: trailType }
+              : null,
+        });
+      }
+
+      setQuantity("");
+      setTimeout(() => setSuccessInfo(null), 3000);
+      return;
+    }
+
+    // Real mode: require login and use backend
     if (!isLoggedIn) {
       login();
       return;
@@ -278,8 +347,8 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
     }
   };
 
-  // Recent trades for this symbol
-  const recentTrades = (trades ?? [])
+  // Recent trades for this symbol (demo or real)
+  const recentTrades = effectiveTrades
     .filter((t) => t.symbol === symbol)
     .slice(0, 5);
 
@@ -433,12 +502,16 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
           </div>
 
           {/* ── Balance ───────────────────────────────────────────────── */}
-          {isLoggedIn && (
+          {(isDemoMode || isLoggedIn) && (
             <div className="flex items-center justify-between rounded-md bg-muted/30 border border-border px-3 py-2">
               <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                Available
+                {isDemoMode ? "Demo Balance" : "Available"}
               </span>
-              <span className="font-mono text-sm font-semibold text-foreground tabular-nums">
+              <span
+                className={`font-mono text-sm font-semibold tabular-nums ${
+                  isDemoMode ? "text-[oklch(0.72_0.14_260)]" : "text-foreground"
+                }`}
+              >
                 {formatCurrency(availableBalance)}
               </span>
             </div>
@@ -1262,13 +1335,16 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
                 <Button
                   data-ocid="order.submit_button"
                   onClick={() => {
-                    if (!isLoggedIn) {
+                    if (!isDemoMode && !isLoggedIn) {
                       handleSubmit();
                     } else if (qty > 0) {
                       setShowConfirm(true);
                     }
                   }}
-                  disabled={isPending || (isLoggedIn ? qty <= 0 : false)}
+                  disabled={
+                    isPending ||
+                    (isDemoMode ? qty <= 0 : isLoggedIn ? qty <= 0 : false)
+                  }
                   className={`w-full font-mono font-bold tracking-wide text-sm transition-colors ${
                     side === "buy"
                       ? "bg-profit hover:bg-profit/90 text-background"
@@ -1277,7 +1353,7 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
                 >
                   {isPending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : !isLoggedIn ? (
+                  ) : !isDemoMode && !isLoggedIn ? (
                     "Sign In to Trade"
                   ) : (
                     `${side.toUpperCase()} ${symbol}`
@@ -1345,7 +1421,7 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
         </div>
 
         {/* ── Recent trades ────────────────────────────────────────────── */}
-        {isLoggedIn && (
+        {(isDemoMode || isLoggedIn) && (
           <div className="border-t border-border">
             <button
               type="button"
@@ -1379,39 +1455,57 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
                     </div>
                   ) : (
                     <div className="px-3 pb-3 space-y-1.5">
-                      {recentTrades.map((trade, i) => (
-                        <div
-                          key={`${trade.timestamp}-${i}`}
-                          data-ocid={`order.recent_trades.item.${i + 1}`}
-                          className="flex items-center justify-between rounded bg-secondary/40 border border-border px-2.5 py-2"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              className={`text-[9px] font-mono font-bold px-1.5 py-0.5 h-auto ${
-                                trade.tradeType === TradeType.buy
-                                  ? "bg-[oklch(0.22_0.08_145)] text-[oklch(0.72_0.18_145)] border-[oklch(0.36_0.12_145)]"
-                                  : "bg-[oklch(0.22_0.08_15)] text-[oklch(0.72_0.18_15)] border-[oklch(0.36_0.12_15)]"
-                              }`}
-                              variant="outline"
-                            >
-                              {trade.tradeType === TradeType.buy
-                                ? "BUY"
-                                : "SELL"}
-                            </Badge>
-                            <span className="font-mono text-xs text-foreground tabular-nums">
-                              {trade.quantity}
-                            </span>
+                      {recentTrades.map((trade, i) => {
+                        // Handle both demo trades (string) and real trades (TradeType enum)
+                        const isBuy = isDemoMode
+                          ? (trade as { tradeType: string }).tradeType === "buy"
+                          : trade.tradeType === TradeType.buy;
+                        return (
+                          <div
+                            key={`${trade.timestamp}-${i}`}
+                            data-ocid={`order.recent_trades.item.${i + 1}`}
+                            className="flex items-center justify-between rounded bg-secondary/40 border border-border px-2.5 py-2"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                className={`text-[9px] font-mono font-bold px-1.5 py-0.5 h-auto ${
+                                  isBuy
+                                    ? "bg-[oklch(0.22_0.08_145)] text-[oklch(0.72_0.18_145)] border-[oklch(0.36_0.12_145)]"
+                                    : "bg-[oklch(0.22_0.08_15)] text-[oklch(0.72_0.18_15)] border-[oklch(0.36_0.12_15)]"
+                                }`}
+                                variant="outline"
+                              >
+                                {isBuy ? "BUY" : "SELL"}
+                              </Badge>
+                              <span className="font-mono text-xs text-foreground tabular-nums">
+                                {trade.quantity}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-mono text-xs tabular-nums text-foreground">
+                                {formatCurrency(trade.pricePerUnit)}
+                              </p>
+                              <p className="font-mono text-[9px] text-muted-foreground">
+                                {isDemoMode
+                                  ? new Intl.DateTimeFormat("en-US", {
+                                      month: "short",
+                                      day: "2-digit",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                      hour12: false,
+                                    }).format(
+                                      new Date(
+                                        typeof trade.timestamp === "bigint"
+                                          ? Number(trade.timestamp / 1_000_000n)
+                                          : (trade.timestamp as number),
+                                      ),
+                                    )
+                                  : formatTimestamp(trade.timestamp as bigint)}
+                              </p>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-mono text-xs tabular-nums text-foreground">
-                              {formatCurrency(trade.pricePerUnit)}
-                            </p>
-                            <p className="font-mono text-[9px] text-muted-foreground">
-                              {formatTimestamp(trade.timestamp)}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </motion.div>

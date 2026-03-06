@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAccountMode } from "@/context/AccountModeContext";
+import { useDemoAccount } from "@/context/DemoAccountContext";
 import { usePriceAlertsContext } from "@/context/PriceAlertsContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useInternetIdentity } from "@/hooks/useInternetIdentity";
@@ -91,6 +92,7 @@ export function Sidebar() {
   const { login, clear, loginStatus, identity, isInitializing } =
     useInternetIdentity();
   const { accountMode } = useAccountMode();
+  const { demoBalance } = useDemoAccount();
   const { theme, setTheme } = useTheme();
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
@@ -116,8 +118,8 @@ export function Sidebar() {
           </div>
         </div>
 
-        {/* Balance Widget */}
-        {isLoggedIn && (
+        {/* Balance Widget - show for demo always, for real only when logged in */}
+        {(accountMode === "demo" || isLoggedIn) && (
           <div className="px-3 py-3 border-b border-sidebar-border">
             <div className="rounded-md bg-accent/40 border border-sidebar-border px-3 py-2.5">
               <div className="flex items-center justify-between mb-1">
@@ -142,7 +144,7 @@ export function Sidebar() {
                   {accountMode.toUpperCase()}
                 </div>
               </div>
-              {balanceLoading ? (
+              {accountMode === "real" && balanceLoading ? (
                 <Skeleton className="h-5 w-28 bg-muted/50" />
               ) : (
                 <div
@@ -154,7 +156,7 @@ export function Sidebar() {
                   )}
                 >
                   {accountMode === "demo"
-                    ? "$10,000.00"
+                    ? formatCurrency(demoBalance)
                     : balance !== undefined
                       ? formatCurrency(balance)
                       : "—"}

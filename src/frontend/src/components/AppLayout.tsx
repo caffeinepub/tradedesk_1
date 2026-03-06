@@ -3,6 +3,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { useLivePrices } from "@/hooks/useLivePrices";
 import { usePriceAlertChecker } from "@/hooks/usePriceAlertChecker";
 import { Outlet } from "@tanstack/react-router";
+import { FloatingOrderBook } from "./FloatingOrderBook";
 import { Sidebar } from "./Sidebar";
 
 export function AppLayout() {
@@ -16,6 +17,7 @@ export function AppLayout() {
       <main className="flex-1 overflow-hidden flex flex-col">
         <Outlet />
       </main>
+      <FloatingOrderBook />
       <Toaster
         theme={isDark ? "dark" : "light"}
         toastOptions={{

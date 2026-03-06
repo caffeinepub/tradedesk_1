@@ -25,6 +25,7 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { useAccountMode } from "@/context/AccountModeContext";
+import { useDemoAccount } from "@/context/DemoAccountContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useInternetIdentity } from "@/hooks/useInternetIdentity";
 import { usePIN } from "@/hooks/usePIN";
@@ -41,6 +42,7 @@ import {
   KeyRound,
   Moon,
   Palette,
+  RefreshCw,
   RotateCcw,
   ShieldCheck,
   Sun,
@@ -1008,7 +1010,10 @@ export function Profile() {
   const { theme, setTheme } = useTheme();
   const { identity } = useInternetIdentity();
   const { data: balance } = useBalance();
+  const { demoBalance, demoPortfolio, demoTrades, resetDemo } =
+    useDemoAccount();
   const [showRealConfirm, setShowRealConfirm] = useState(false);
+  const [showResetDemoConfirm, setShowResetDemoConfirm] = useState(false);
 
   const principal = identity?.getPrincipal().toString();
 
@@ -1250,14 +1255,11 @@ export function Profile() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Demo Account Card */}
-              <button
-                type="button"
-                data-ocid="profile.demo_account.button"
-                onClick={() => setAccountMode("demo")}
+              <div
                 className={`relative rounded-xl border-2 p-5 text-left transition-all duration-200 ${
                   accountMode === "demo"
                     ? "border-[oklch(0.6_0.14_260)] bg-[oklch(0.16_0.06_260)] shadow-[0_0_20px_oklch(0.4_0.14_260/0.15)]"
-                    : "border-border bg-card/50 hover:border-border/80 hover:bg-card"
+                    : "border-border bg-card/50"
                 }`}
               >
                 {accountMode === "demo" && (
@@ -1265,46 +1267,74 @@ export function Profile() {
                     <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                   </div>
                 )}
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-[oklch(0.22_0.06_260)] border border-[oklch(0.36_0.10_260)] flex items-center justify-center">
-                    <FlaskConical className="w-5 h-5 text-[oklch(0.72_0.14_260)]" />
-                  </div>
-                  <div>
-                    <div className="font-semibold text-sm text-foreground">
-                      Demo Account
+                <button
+                  type="button"
+                  data-ocid="profile.demo_account.button"
+                  onClick={() => setAccountMode("demo")}
+                  className="w-full text-left"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-lg bg-[oklch(0.22_0.06_260)] border border-[oklch(0.36_0.10_260)] flex items-center justify-center">
+                      <FlaskConical className="w-5 h-5 text-[oklch(0.72_0.14_260)]" />
                     </div>
-                    <div className="text-xs text-muted-foreground font-mono">
-                      Risk-free simulation
+                    <div>
+                      <div className="font-semibold text-sm text-foreground">
+                        Demo Account
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        Risk-free simulation
+                      </div>
                     </div>
                   </div>
-                </div>
-                <ul className="space-y-1.5 text-xs text-muted-foreground">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3 h-3 text-[oklch(0.6_0.14_260)] shrink-0" />
-                    $10,000 simulated starting balance
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3 h-3 text-[oklch(0.6_0.14_260)] shrink-0" />
-                    No real money at risk
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3 h-3 text-[oklch(0.6_0.14_260)] shrink-0" />
-                    Practice strategies safely
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3 h-3 text-[oklch(0.6_0.14_260)] shrink-0" />
-                    All features available
-                  </li>
-                </ul>
-                <div className="mt-4 pt-3 border-t border-border/50">
-                  <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">
-                    Demo Balance
+                  <ul className="space-y-1.5 text-xs text-muted-foreground">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3 h-3 text-[oklch(0.6_0.14_260)] shrink-0" />
+                      $10,000 simulated starting balance
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3 h-3 text-[oklch(0.6_0.14_260)] shrink-0" />
+                      No real money at risk
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3 h-3 text-[oklch(0.6_0.14_260)] shrink-0" />
+                      Practice strategies safely
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3 h-3 text-[oklch(0.6_0.14_260)] shrink-0" />
+                      All features available
+                    </li>
+                  </ul>
+                  <div className="mt-4 pt-3 border-t border-border/50">
+                    <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">
+                      Demo Balance
+                    </div>
+                    <div className="font-mono text-base font-bold text-[oklch(0.72_0.14_260)]">
+                      {formatCurrency(demoBalance)}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                      {demoPortfolio.length} position
+                      {demoPortfolio.length !== 1 ? "s" : ""} ·{" "}
+                      {demoTrades.length} trade
+                      {demoTrades.length !== 1 ? "s" : ""}
+                    </div>
                   </div>
-                  <div className="font-mono text-base font-bold text-[oklch(0.72_0.14_260)]">
-                    $10,000.00
-                  </div>
+                </button>
+                {/* Reset Demo Account button */}
+                <div className="mt-3 pt-3 border-t border-[oklch(0.36_0.10_260)/50]">
+                  <button
+                    type="button"
+                    data-ocid="profile.reset_demo.button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowResetDemoConfirm(true);
+                    }}
+                    className="flex items-center gap-1.5 text-[10px] font-mono text-[oklch(0.55_0.08_260)] hover:text-[oklch(0.72_0.14_260)] transition-colors"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Reset Demo Account
+                  </button>
                 </div>
-              </button>
+              </div>
 
               {/* Real Account Card */}
               <button
@@ -1440,6 +1470,62 @@ export function Profile() {
           </Card>
         )}
       </motion.div>
+
+      {/* Confirmation dialog: Reset Demo Account */}
+      <AlertDialog
+        open={showResetDemoConfirm}
+        onOpenChange={setShowResetDemoConfirm}
+      >
+        <AlertDialogContent
+          className="bg-card border-border max-w-md"
+          data-ocid="profile.reset_demo.dialog"
+        >
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-full bg-[oklch(0.22_0.06_260)] border border-[oklch(0.36_0.10_260)] flex items-center justify-center shrink-0">
+                <RefreshCw className="w-5 h-5 text-[oklch(0.72_0.14_260)]" />
+              </div>
+              <AlertDialogTitle className="text-base font-bold text-foreground">
+                Reset Demo Account?
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-muted-foreground leading-relaxed pl-[52px]">
+                <p>
+                  This will reset your demo balance back to{" "}
+                  <span className="font-semibold text-foreground">$10,000</span>{" "}
+                  and clear all simulated positions and trade history.
+                </p>
+                <p className="text-xs text-[oklch(0.60_0.08_260)]">
+                  Only your demo data will be affected. Real account data is
+                  untouched.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-2 gap-2">
+            <AlertDialogCancel
+              data-ocid="profile.reset_demo.cancel_button"
+              className="font-mono text-sm"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="profile.reset_demo.confirm_button"
+              onClick={() => {
+                resetDemo();
+                toast.success("Demo account reset", {
+                  description: "Balance restored to $10,000",
+                });
+              }}
+              className="bg-[oklch(0.30_0.10_260)] hover:bg-[oklch(0.38_0.12_260)] text-[oklch(0.88_0.06_260)] font-mono text-sm border border-[oklch(0.45_0.12_260)]"
+            >
+              <RefreshCw className="w-4 h-4 mr-1.5" />
+              Yes, Reset Demo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Confirmation dialog: Demo → Real */}
       <AlertDialog open={showRealConfirm} onOpenChange={setShowRealConfirm}>
