@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
+import { useAccountMode } from "@/context/AccountModeContext";
 import { useInternetIdentity } from "@/hooks/useInternetIdentity";
 import { useLivePrices } from "@/hooks/useLivePrices";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/hooks/useQueries";
 import { formatChange, formatCurrency, formatTimestamp } from "@/utils/format";
 import {
+  AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
   CheckCircle2,
@@ -79,6 +81,8 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
   const buy = useBuy();
   const sell = useSell();
   const isPending = buy.isPending || sell.isPending;
+  const { accountMode } = useAccountMode();
+  const isRealAccount = accountMode === "real";
 
   const liveData = livePrices[symbol];
   const displayPrice = liveData?.price ?? asset?.price ?? 0;
@@ -822,6 +826,20 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
               </span>
             </div>
           </div>
+
+          {/* ── Live account warning ──────────────────────────────────── */}
+          {isRealAccount && isLoggedIn && (
+            <div
+              data-ocid="order.live_account_warning"
+              className="flex items-start gap-2 rounded-md border border-amber-800/60 bg-amber-950/30 px-3 py-2.5"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+              <p className="text-[10px] font-mono text-amber-300/90 leading-snug">
+                <span className="font-bold text-amber-400">LIVE ACCOUNT</span> —
+                Real funds will be used for this order.
+              </p>
+            </div>
+          )}
 
           {/* ── Submit button ─────────────────────────────────────────── */}
           <Button

@@ -10,10 +10,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAccountMode } from "@/context/AccountModeContext";
 import { useLivePrices } from "@/hooks/useLivePrices";
 import { useBuy, useSell } from "@/hooks/useQueries";
 import { formatChange, formatCurrency } from "@/utils/format";
 import {
+  AlertTriangle,
   BarChart2,
   ChevronDown,
   ChevronUp,
@@ -44,6 +46,8 @@ export function TradeModal({
   const buy = useBuy();
   const sell = useSell();
   const { data: livePrices } = useLivePrices();
+  const { accountMode } = useAccountMode();
+  const isRealAccount = accountMode === "real";
 
   const isPending = buy.isPending || sell.isPending;
   const qty = Number.parseFloat(quantity) || 0;
@@ -158,6 +162,21 @@ export function TradeModal({
         {showChart && asset && (
           <div className="mt-1 mb-1" data-ocid="trade.chart_panel">
             <TradingViewChart symbol={asset.symbol} height={300} />
+          </div>
+        )}
+
+        {/* Live account warning */}
+        {isRealAccount && (
+          <div
+            data-ocid="trade.live_account_warning"
+            className="flex items-start gap-2 rounded-md border border-amber-800/60 bg-amber-950/30 px-3 py-2.5 mt-1"
+          >
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+            <p className="text-[11px] font-mono text-amber-300/90 leading-snug">
+              <span className="font-bold text-amber-400">LIVE ACCOUNT</span> —
+              This order will use real funds. Double-check your quantity before
+              confirming.
+            </p>
           </div>
         )}
 

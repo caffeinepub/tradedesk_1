@@ -1,3 +1,13 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,11 +21,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useAccountMode } from "@/context/AccountModeContext";
 import { useBalance } from "@/hooks/useQueries";
 import { formatCurrency } from "@/utils/format";
 import { Link } from "@tanstack/react-router";
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowDownLeft,
   ArrowUpRight,
   Building2,
@@ -651,10 +663,13 @@ function DepositPanel() {
 
 function WithdrawPanel({ kycStatus }: { kycStatus: KYCStatus }) {
   const { data: balance } = useBalance();
+  const { accountMode } = useAccountMode();
   const [selectedMethod, setSelectedMethod] = useState("bank");
   const [amount, setAmount] = useState("");
   const [withdrawUpiId, setWithdrawUpiId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmAmountInput, setConfirmAmountInput] = useState("");
   const method = WITHDRAW_METHODS.find((m) => m.id === selectedMethod)!;
 
   const numAmount = Number(amount) || 0;
@@ -837,9 +852,37 @@ function WithdrawPanel({ kycStatus }: { kycStatus: KYCStatus }) {
           </div>
         </div>
 
+        {/* Real account warning */}
+        {accountMode === "real" && numAmount > 0 && (
+          <motion.div
+            data-ocid="payments.real_account.warning"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-start gap-3 rounded-lg border border-[oklch(0.55_0.22_55)] bg-[oklch(0.18_0.06_55)] p-3.5"
+          >
+            <AlertTriangle className="w-4 h-4 text-[oklch(0.75_0.2_55)] mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-mono font-semibold text-[oklch(0.88_0.18_55)]">
+                LIVE ACCOUNT — Real funds will be withdrawn
+              </p>
+              <p className="text-xs text-[oklch(0.65_0.12_55)] mt-0.5">
+                This withdrawal will deduct real money from your account. Ensure
+                all details are correct before confirming.
+              </p>
+            </div>
+          </motion.div>
+        )}
+
         <Button
           data-ocid="payments.withdraw.submit_button"
-          onClick={handleWithdraw}
+          onClick={() => {
+            if (accountMode === "real") {
+              setConfirmAmountInput("");
+              setShowConfirmDialog(true);
+            } else {
+              handleWithdraw();
+            }
+          }}
           disabled={!isValid || isSubmitting || isKYCBlocked}
           className="w-full h-11 font-mono font-semibold text-sm bg-[oklch(0.62_0.22_25)/15] hover:bg-[oklch(0.62_0.22_25)/25] text-loss border border-loss/30 hover:border-loss/50 transition-all disabled:opacity-40"
           variant="outline"
@@ -853,6 +896,87 @@ function WithdrawPanel({ kycStatus }: { kycStatus: KYCStatus }) {
             ? "Processing..."
             : `Withdraw ${numAmount > 0 ? formatCurrency(numAmount) : ""}`}
         </Button>
+
+        {/* Real Account Withdrawal Confirmation Dialog */}
+        <AlertDialog
+          open={showConfirmDialog}
+          onOpenChange={setShowConfirmDialog}
+        >
+          <AlertDialogContent
+            data-ocid="payments.withdraw_confirm.dialog"
+            className="bg-card border border-destructive/30 font-mono max-w-md"
+          >
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2.5 text-destructive">
+                <AlertTriangle className="w-5 h-5 shrink-0" />
+                Confirm Withdrawal
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3 text-left">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    You are about to withdraw{" "}
+                    <span className="font-semibold text-foreground">
+                      {formatCurrency(numAmount)}
+                    </span>{" "}
+                    from your{" "}
+                    <span className="font-semibold text-[oklch(0.65_0.22_145)]">
+                      Real Account
+                    </span>
+                    . Real funds will be deducted immediately.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    To confirm, type the amount below:
+                  </p>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground uppercase tracking-widest">
+                      Type amount to confirm
+                    </Label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        data-ocid="payments.withdraw_confirm.input"
+                        placeholder={String(numAmount)}
+                        value={confirmAmountInput}
+                        onChange={(e) => setConfirmAmountInput(e.target.value)}
+                        autoFocus
+                        className="pl-9 font-mono bg-background border-border focus:border-destructive/60 text-foreground"
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Enter exactly: {numAmount}
+                    </p>
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="gap-2">
+              <AlertDialogCancel
+                data-ocid="payments.withdraw_confirm.cancel_button"
+                onClick={() => setShowConfirmDialog(false)}
+                className="font-mono text-sm"
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                data-ocid="payments.withdraw_confirm.confirm_button"
+                disabled={
+                  !(
+                    confirmAmountInput.trim() === String(numAmount) ||
+                    Number(confirmAmountInput) === numAmount
+                  )
+                }
+                onClick={() => {
+                  setShowConfirmDialog(false);
+                  handleWithdraw();
+                }}
+                className="font-mono text-sm bg-destructive hover:bg-destructive/90 text-destructive-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ArrowUpRight className="w-4 h-4 mr-2" />
+                Confirm Withdrawal
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
