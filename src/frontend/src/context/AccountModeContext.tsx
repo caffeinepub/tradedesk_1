@@ -20,7 +20,7 @@ export function AccountModeProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore
     }
-    return "demo";
+    return "real";
   });
 
   const setAccountMode = (mode: AccountMode) => {

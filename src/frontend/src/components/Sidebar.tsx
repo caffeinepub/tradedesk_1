@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAccountMode } from "@/context/AccountModeContext";
+import { usePriceAlertsContext } from "@/context/PriceAlertsContext";
+import { useTheme } from "@/context/ThemeContext";
 import { useInternetIdentity } from "@/hooks/useInternetIdentity";
 import { useBalance } from "@/hooks/useQueries";
 import { cn } from "@/lib/utils";
@@ -8,6 +10,7 @@ import { formatCurrency } from "@/utils/format";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   BarChart2,
+  Bell,
   Briefcase,
   ClipboardList,
   FlaskConical,
@@ -17,8 +20,10 @@ import {
   Loader2,
   LogIn,
   LogOut,
+  Moon,
   ShieldCheck,
   Star,
+  Sun,
   User,
   Wallet,
   Zap,
@@ -86,8 +91,10 @@ export function Sidebar() {
   const { login, clear, loginStatus, identity, isInitializing } =
     useInternetIdentity();
   const { accountMode } = useAccountMode();
+  const { theme, setTheme } = useTheme();
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
+  const { activeAlerts } = usePriceAlertsContext();
 
   const isLoggedIn = !!identity;
   const isLoggingIn = loginStatus === "logging-in";
@@ -193,6 +200,45 @@ export function Sidebar() {
             );
           })}
 
+          {/* Price Alerts Link */}
+          <Link to="/alerts" data-ocid="nav.alerts.link">
+            <div
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all group",
+                currentPath === "/alerts"
+                  ? "bg-sidebar-primary/15 text-primary border border-primary/25"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground border border-transparent",
+              )}
+            >
+              <div className="relative shrink-0">
+                <Bell
+                  className={cn(
+                    "w-4 h-4 transition-colors",
+                    currentPath === "/alerts"
+                      ? "text-primary"
+                      : "text-muted-foreground group-hover:text-foreground",
+                  )}
+                />
+                {activeAlerts.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-[oklch(0.72_0.18_55)] text-[oklch(0.12_0.04_55)] text-[8px] font-bold flex items-center justify-center leading-none">
+                    {activeAlerts.length > 9 ? "9+" : activeAlerts.length}
+                  </span>
+                )}
+              </div>
+              <span
+                className={cn(
+                  "font-medium",
+                  currentPath === "/alerts" && "font-semibold",
+                )}
+              >
+                Price Alerts
+              </span>
+              {currentPath === "/alerts" && (
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+              )}
+            </div>
+          </Link>
+
           {/* Staff Section */}
           <div className="pt-3 pb-1">
             <div className="px-3 pb-1.5 flex items-center gap-2">
@@ -234,6 +280,43 @@ export function Sidebar() {
             </Link>
           </div>
         </nav>
+
+        {/* Theme Toggle */}
+        <div className="px-3 pb-3 border-t border-sidebar-border pt-3">
+          <div className="flex items-center gap-1 rounded-lg bg-muted/60 p-1 border border-border">
+            <button
+              type="button"
+              data-ocid="theme.toggle"
+              onClick={() => setTheme("bright")}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-all duration-200",
+                theme === "bright"
+                  ? "bg-card text-foreground shadow-sm border border-border"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              aria-pressed={theme === "bright"}
+              aria-label="Switch to Bright theme"
+            >
+              <Sun className="w-3.5 h-3.5" />
+              Bright
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme("dark")}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-all duration-200",
+                theme === "dark"
+                  ? "bg-card text-foreground shadow-sm border border-border"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              aria-pressed={theme === "dark"}
+              aria-label="Switch to Dark theme"
+            >
+              <Moon className="w-3.5 h-3.5" />
+              Dark
+            </button>
+          </div>
+        </div>
 
         {/* Auth Section */}
         <div className="px-3 py-4 border-t border-sidebar-border space-y-2">

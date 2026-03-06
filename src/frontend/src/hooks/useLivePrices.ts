@@ -193,8 +193,8 @@ export function useLivePrices(): { data: LivePriceData; isLive: boolean } {
   const { data } = useQuery({
     queryKey: ["livePrices"],
     queryFn: fetchAllLivePrices,
-    refetchInterval: 30_000,
-    staleTime: 25_000,
+    refetchInterval: 5_000,
+    staleTime: 4_000,
     // Never throw — always return fallback on error
     retry: false,
     throwOnError: false,

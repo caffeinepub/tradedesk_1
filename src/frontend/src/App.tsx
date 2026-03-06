@@ -1,5 +1,5 @@
 import { AppLayout } from "@/components/AppLayout";
-import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { Charts } from "@/pages/Charts";
 import { Dashboard } from "@/pages/Dashboard";
 import { History } from "@/pages/History";
@@ -9,6 +9,7 @@ import { Login } from "@/pages/Login";
 import { Markets } from "@/pages/Markets";
 import { Payments } from "@/pages/Payments";
 import { Portfolio } from "@/pages/Portfolio";
+import { PriceAlerts } from "@/pages/PriceAlerts";
 import { Profile } from "@/pages/Profile";
 import { Watchlist } from "@/pages/Watchlist";
 import {
@@ -22,12 +23,7 @@ import {
 
 // Root route
 const rootRoute = createRootRoute({
-  component: () => (
-    <>
-      <Outlet />
-      <Toaster theme="dark" />
-    </>
-  ),
+  component: () => <Outlet />,
 });
 
 // Auth layout route (sidebar + content)
@@ -98,6 +94,12 @@ const profileRoute = createRoute({
   component: Profile,
 });
 
+const alertsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/alerts",
+  component: PriceAlerts,
+});
+
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
@@ -112,6 +114,7 @@ const routeTree = rootRoute.addChildren([
     portfolioRoute,
     historyRoute,
     watchlistRoute,
+    alertsRoute,
     kycRoute,
     kycAdminRoute,
     paymentsRoute,
@@ -129,5 +132,9 @@ declare module "@tanstack/react-router" {
 }
 
 export default function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <ThemeProvider>
+      <RouterProvider router={router} />
+    </ThemeProvider>
+  );
 }

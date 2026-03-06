@@ -12,6 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +27,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAccountMode } from "@/context/AccountModeContext";
+import { usePIN } from "@/hooks/usePIN";
 import { useBalance } from "@/hooks/useQueries";
 import { formatCurrency } from "@/utils/format";
 import { Link } from "@tanstack/react-router";
@@ -41,6 +47,7 @@ import {
   Lock,
   QrCode,
   RefreshCw,
+  RotateCcw,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -48,7 +55,7 @@ import {
   Wallet,
   Zap,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { type KYCStatus, getKYCStatus } from "./KYC";
@@ -661,15 +668,30 @@ function DepositPanel() {
 
 // ─── Withdraw Panel ────────────────────────────────────────────────────────────
 
+const LARGE_WITHDRAWAL_THRESHOLD = 1000;
+
 function WithdrawPanel({ kycStatus }: { kycStatus: KYCStatus }) {
   const { data: balance } = useBalance();
   const { accountMode } = useAccountMode();
+  const { hasPin, verifyPin, resetPin } = usePIN();
   const [selectedMethod, setSelectedMethod] = useState("bank");
   const [amount, setAmount] = useState("");
   const [withdrawUpiId, setWithdrawUpiId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [confirmAmountInput, setConfirmAmountInput] = useState("");
+  const [dialogStep, setDialogStep] = useState<"amount" | "pin" | "reset">(
+    "amount",
+  );
+  const [pinValue, setPinValue] = useState("");
+  const [pinError, setPinError] = useState(false);
+  // inline PIN reset state
+  type ResetStep = "verify" | "new" | "confirm" | "success";
+  const [resetStep, setResetStep] = useState<ResetStep>("verify");
+  const [resetKycStatus, setResetKycStatus] = useState<KYCStatus>("unverified");
+  const [resetNewPin, setResetNewPin] = useState("");
+  const [resetConfirmPin, setResetConfirmPin] = useState("");
+  const [resetError, setResetError] = useState(false);
   const method = WITHDRAW_METHODS.find((m) => m.id === selectedMethod)!;
 
   const numAmount = Number(amount) || 0;
@@ -878,6 +900,9 @@ function WithdrawPanel({ kycStatus }: { kycStatus: KYCStatus }) {
           onClick={() => {
             if (accountMode === "real") {
               setConfirmAmountInput("");
+              setDialogStep("amount");
+              setPinValue("");
+              setPinError(false);
               setShowConfirmDialog(true);
             } else {
               handleWithdraw();
@@ -904,77 +929,569 @@ function WithdrawPanel({ kycStatus }: { kycStatus: KYCStatus }) {
         >
           <AlertDialogContent
             data-ocid="payments.withdraw_confirm.dialog"
-            className="bg-card border border-destructive/30 font-mono max-w-md"
+            className="bg-card border border-destructive/30 font-mono max-w-md overflow-hidden"
           >
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2.5 text-destructive">
-                <AlertTriangle className="w-5 h-5 shrink-0" />
-                Confirm Withdrawal
-              </AlertDialogTitle>
-              <AlertDialogDescription asChild>
-                <div className="space-y-3 text-left">
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    You are about to withdraw{" "}
-                    <span className="font-semibold text-foreground">
-                      {formatCurrency(numAmount)}
-                    </span>{" "}
-                    from your{" "}
-                    <span className="font-semibold text-[oklch(0.65_0.22_145)]">
-                      Real Account
-                    </span>
-                    . Real funds will be deducted immediately.
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    To confirm, type the amount below:
-                  </p>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground uppercase tracking-widest">
-                      Type amount to confirm
-                    </Label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        data-ocid="payments.withdraw_confirm.input"
-                        placeholder={String(numAmount)}
-                        value={confirmAmountInput}
-                        onChange={(e) => setConfirmAmountInput(e.target.value)}
-                        autoFocus
-                        className="pl-9 font-mono bg-background border-border focus:border-destructive/60 text-foreground"
-                      />
+            {dialogStep === "amount" ? (
+              <>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2.5 text-destructive">
+                    <AlertTriangle className="w-5 h-5 shrink-0" />
+                    Confirm Withdrawal
+                  </AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-3 text-left">
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        You are about to withdraw{" "}
+                        <span className="font-semibold text-foreground">
+                          {formatCurrency(numAmount)}
+                        </span>{" "}
+                        from your{" "}
+                        <span className="font-semibold text-[oklch(0.65_0.22_145)]">
+                          Real Account
+                        </span>
+                        . Real funds will be deducted immediately.
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        To confirm, type the amount below:
+                      </p>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground uppercase tracking-widest">
+                          Type amount to confirm
+                        </Label>
+                        <div className="relative">
+                          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            data-ocid="payments.withdraw_confirm.input"
+                            placeholder={String(numAmount)}
+                            value={confirmAmountInput}
+                            onChange={(e) =>
+                              setConfirmAmountInput(e.target.value)
+                            }
+                            autoFocus
+                            className="pl-9 font-mono bg-background border-border focus:border-destructive/60 text-foreground"
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Enter exactly: {numAmount}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Enter exactly: {numAmount}
-                    </p>
-                  </div>
-                </div>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className="gap-2">
-              <AlertDialogCancel
-                data-ocid="payments.withdraw_confirm.cancel_button"
-                onClick={() => setShowConfirmDialog(false)}
-                className="font-mono text-sm"
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter className="gap-2">
+                  <AlertDialogCancel
+                    data-ocid="payments.withdraw_confirm.cancel_button"
+                    onClick={() => setShowConfirmDialog(false)}
+                    className="font-mono text-sm"
+                  >
+                    Cancel
+                  </AlertDialogCancel>
+                  {numAmount >= LARGE_WITHDRAWAL_THRESHOLD ? (
+                    <Button
+                      data-ocid="payments.withdraw_confirm.confirm_button"
+                      disabled={
+                        !(
+                          confirmAmountInput.trim() === String(numAmount) ||
+                          Number(confirmAmountInput) === numAmount
+                        )
+                      }
+                      onClick={() => {
+                        setPinValue("");
+                        setPinError(false);
+                        setDialogStep("pin");
+                      }}
+                      className="font-mono text-sm bg-primary/20 hover:bg-primary/30 text-primary border border-primary/40 hover:border-primary/60 disabled:opacity-40 disabled:cursor-not-allowed"
+                      variant="outline"
+                    >
+                      <Shield className="w-4 h-4 mr-2" />
+                      Next — Enter PIN
+                    </Button>
+                  ) : (
+                    <AlertDialogAction
+                      data-ocid="payments.withdraw_confirm.confirm_button"
+                      disabled={
+                        !(
+                          confirmAmountInput.trim() === String(numAmount) ||
+                          Number(confirmAmountInput) === numAmount
+                        )
+                      }
+                      onClick={() => {
+                        setShowConfirmDialog(false);
+                        handleWithdraw();
+                      }}
+                      className="font-mono text-sm bg-destructive hover:bg-destructive/90 text-destructive-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <ArrowUpRight className="w-4 h-4 mr-2" />
+                      Confirm Withdrawal
+                    </AlertDialogAction>
+                  )}
+                </AlertDialogFooter>
+              </>
+            ) : dialogStep === "pin" ? (
+              <motion.div
+                key="pin-step"
+                initial={{ opacity: 0, x: 24 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+                className="flex flex-col gap-4"
               >
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction
-                data-ocid="payments.withdraw_confirm.confirm_button"
-                disabled={
-                  !(
-                    confirmAmountInput.trim() === String(numAmount) ||
-                    Number(confirmAmountInput) === numAmount
-                  )
-                }
-                onClick={() => {
-                  setShowConfirmDialog(false);
-                  handleWithdraw();
-                }}
-                className="font-mono text-sm bg-destructive hover:bg-destructive/90 text-destructive-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2.5 text-primary">
+                    <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
+                      <Shield className="w-4 h-4 text-primary" />
+                    </div>
+                    Security Verification
+                  </AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="space-y-4 text-left">
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Enter your 6-digit security PIN to authorise this
+                        withdrawal of{" "}
+                        <span className="font-semibold text-foreground">
+                          {formatCurrency(numAmount)}
+                        </span>
+                        .
+                      </p>
+
+                      {/* No PIN configured notice */}
+                      {!hasPin && (
+                        <div className="flex items-start gap-2 rounded-md border border-[oklch(0.55_0.22_55)] bg-[oklch(0.18_0.06_55)] px-3 py-2.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-[oklch(0.75_0.2_55)] mt-0.5 shrink-0" />
+                          <span className="text-xs font-mono text-[oklch(0.75_0.15_55)] leading-relaxed">
+                            No PIN set.{" "}
+                            <button
+                              type="button"
+                              className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+                              onClick={() => {
+                                setResetKycStatus(getKYCStatus());
+                                setResetStep("verify");
+                                setResetNewPin("");
+                                setResetConfirmPin("");
+                                setResetError(false);
+                                setDialogStep("reset");
+                              }}
+                            >
+                              Set a PIN now →
+                            </button>
+                          </span>
+                        </div>
+                      )}
+
+                      {/* OTP Input */}
+                      <div className="flex flex-col items-center gap-3 py-2">
+                        <motion.div
+                          animate={
+                            pinError
+                              ? {
+                                  x: [0, -8, 8, -6, 6, -4, 4, 0],
+                                  transition: { duration: 0.45 },
+                                }
+                              : {}
+                          }
+                        >
+                          <InputOTP
+                            data-ocid="payments.withdraw_pin.input"
+                            maxLength={6}
+                            value={pinValue}
+                            onChange={(v) => {
+                              setPinValue(v);
+                              setPinError(false);
+                            }}
+                          >
+                            <InputOTPGroup className="gap-1.5">
+                              {[0, 1, 2, 3, 4, 5].map((i) => (
+                                <InputOTPSlot
+                                  key={i}
+                                  index={i}
+                                  className="h-12 w-10 text-base font-mono font-bold bg-background border-border data-[active=true]:border-primary data-[active=true]:ring-primary/30 text-foreground"
+                                />
+                              ))}
+                            </InputOTPGroup>
+                          </InputOTP>
+                        </motion.div>
+
+                        {/* Error message */}
+                        {pinError && (
+                          <motion.p
+                            data-ocid="payments.withdraw_pin.error_state"
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-xs font-mono text-destructive flex items-center gap-1.5"
+                          >
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            Incorrect PIN. Please try again.
+                          </motion.p>
+                        )}
+
+                        {/* Forgot PIN */}
+                        {hasPin && (
+                          <Button
+                            data-ocid="payments.withdraw_pin.forgot_button"
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setResetKycStatus(getKYCStatus());
+                              setResetStep("verify");
+                              setResetNewPin("");
+                              setResetConfirmPin("");
+                              setResetError(false);
+                              setDialogStep("reset");
+                            }}
+                            className="text-xs text-muted-foreground hover:text-primary font-mono gap-1.5 h-7 px-2"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            Forgot PIN?
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+
+                <AlertDialogFooter className="gap-2">
+                  <Button
+                    data-ocid="payments.withdraw_pin.back_button"
+                    variant="outline"
+                    onClick={() => {
+                      setDialogStep("amount");
+                      setPinValue("");
+                      setPinError(false);
+                    }}
+                    className="font-mono text-sm"
+                  >
+                    ← Back
+                  </Button>
+                  <Button
+                    data-ocid="payments.withdraw_pin.confirm_button"
+                    disabled={pinValue.length !== 6 || !hasPin}
+                    onClick={() => {
+                      if (verifyPin(pinValue)) {
+                        setShowConfirmDialog(false);
+                        handleWithdraw();
+                      } else {
+                        setPinError(true);
+                        setPinValue("");
+                      }
+                    }}
+                    className="font-mono text-sm bg-destructive hover:bg-destructive/90 text-destructive-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <ArrowUpRight className="w-4 h-4 mr-2" />
+                    Confirm Withdrawal
+                  </Button>
+                </AlertDialogFooter>
+              </motion.div>
+            ) : (
+              /* ── Inline PIN Reset Flow ── */
+              <motion.div
+                key="reset-step"
+                initial={{ opacity: 0, x: 24 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+                className="flex flex-col gap-4"
               >
-                <ArrowUpRight className="w-4 h-4 mr-2" />
-                Confirm Withdrawal
-              </AlertDialogAction>
-            </AlertDialogFooter>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2.5 text-foreground">
+                    <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
+                      <RotateCcw className="w-4 h-4 text-primary" />
+                    </div>
+                    {resetStep === "success"
+                      ? "PIN Reset!"
+                      : "Reset Security PIN"}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription asChild>
+                    <div className="text-left text-sm text-muted-foreground">
+                      {resetStep === "verify" &&
+                        "Verify your identity to reset your PIN."}
+                      {resetStep === "new" && "Choose a new 6-digit PIN."}
+                      {resetStep === "confirm" && "Confirm your new PIN."}
+                      {resetStep === "success" &&
+                        "Your PIN has been reset successfully."}
+                    </div>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+
+                <AnimatePresence mode="wait">
+                  {resetStep === "success" ? (
+                    <motion.div
+                      key="inline-reset-success"
+                      initial={{ opacity: 0, scale: 0.85 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="flex flex-col items-center gap-3 py-4"
+                    >
+                      <motion.div
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 20,
+                        }}
+                        className="w-14 h-14 rounded-full bg-[oklch(0.22_0.08_145)] border-2 border-[oklch(0.5_0.18_145)] flex items-center justify-center"
+                      >
+                        <CheckCircle2 className="w-7 h-7 text-[oklch(0.72_0.18_145)]" />
+                      </motion.div>
+                      <p className="text-sm text-muted-foreground font-mono text-center">
+                        PIN reset. You can now authorise your withdrawal.
+                      </p>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key={resetStep}
+                      initial={{ opacity: 0, x: 16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -16 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col items-center gap-4"
+                    >
+                      {/* ── Verify Step ── */}
+                      {resetStep === "verify" && (
+                        <div className="w-full space-y-4">
+                          <div className="flex flex-col items-center gap-2 pb-1">
+                            <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+                              <ShieldCheck className="w-6 h-6 text-primary/70" />
+                            </div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-widest font-mono text-center">
+                              Identity Verification
+                            </p>
+                          </div>
+
+                          {/* KYC Unverified */}
+                          {resetKycStatus === "unverified" && (
+                            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 space-y-3">
+                              <div className="flex items-start gap-2.5">
+                                <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                                <div>
+                                  <p className="text-sm font-semibold text-destructive font-mono">
+                                    KYC Verification Required
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                                    Complete KYC verification before resetting
+                                    your PIN.
+                                  </p>
+                                </div>
+                              </div>
+                              <Link
+                                to="/kyc"
+                                onClick={() => setShowConfirmDialog(false)}
+                              >
+                                <Button
+                                  data-ocid="payments.reset_pin.go_kyc.button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full font-mono text-xs border-destructive/40 text-destructive hover:bg-destructive/10 hover:border-destructive/60"
+                                >
+                                  <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
+                                  Complete KYC Verification
+                                </Button>
+                              </Link>
+                            </div>
+                          )}
+
+                          {/* KYC Pending */}
+                          {resetKycStatus === "pending" && (
+                            <div className="rounded-lg border border-[oklch(0.55_0.15_55)/40] bg-[oklch(0.20_0.06_55)] p-4 space-y-3">
+                              <div className="flex items-start gap-2.5">
+                                <AlertCircle className="w-4 h-4 text-[oklch(0.75_0.15_55)] shrink-0 mt-0.5" />
+                                <div>
+                                  <p className="text-sm font-semibold text-[oklch(0.85_0.12_55)] font-mono">
+                                    KYC Under Review
+                                  </p>
+                                  <p className="text-xs text-[oklch(0.65_0.08_55)] mt-1 leading-relaxed">
+                                    Verification in progress — you can still
+                                    reset your PIN now.
+                                  </p>
+                                </div>
+                              </div>
+                              <Button
+                                data-ocid="payments.reset_pin.continue.button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setResetStep("new");
+                                  setResetError(false);
+                                }}
+                                className="w-full font-mono text-xs border-[oklch(0.45_0.12_55)/50] text-[oklch(0.75_0.15_55)] hover:bg-[oklch(0.26_0.08_55)]"
+                              >
+                                Continue to Reset →
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* KYC Verified */}
+                          {(resetKycStatus === "level1" ||
+                            resetKycStatus === "level2") && (
+                            <div className="rounded-lg border border-[oklch(0.5_0.18_145)/30] bg-[oklch(0.18_0.06_145)] p-4 space-y-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-[oklch(0.22_0.08_145)] border border-[oklch(0.36_0.12_145)] flex items-center justify-center shrink-0">
+                                  <CheckCircle2 className="w-4 h-4 text-[oklch(0.72_0.18_145)]" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-semibold text-[oklch(0.85_0.12_145)] font-mono">
+                                    KYC Verified
+                                  </p>
+                                  <p className="text-xs text-[oklch(0.60_0.08_145)]">
+                                    {resetKycStatus === "level1"
+                                      ? "Level 1"
+                                      : "Level 2"}{" "}
+                                    — identity confirmed
+                                  </p>
+                                </div>
+                              </div>
+                              <Button
+                                data-ocid="payments.reset_pin.continue.button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setResetStep("new");
+                                  setResetError(false);
+                                }}
+                                className="w-full font-mono text-xs border-[oklch(0.36_0.12_145)] text-[oklch(0.72_0.18_145)] hover:bg-[oklch(0.22_0.08_145)]"
+                              >
+                                <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
+                                Continue to Reset →
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ── New / Confirm PIN Steps ── */}
+                      {(resetStep === "new" || resetStep === "confirm") && (
+                        <>
+                          <p className="text-xs text-muted-foreground uppercase tracking-widest font-mono">
+                            {resetStep === "new"
+                              ? "Enter new 6-digit PIN"
+                              : "Confirm new PIN"}
+                          </p>
+                          <motion.div
+                            animate={
+                              resetError && resetStep === "confirm"
+                                ? {
+                                    x: [0, -8, 8, -6, 6, -4, 4, 0],
+                                    transition: { duration: 0.45 },
+                                  }
+                                : {}
+                            }
+                          >
+                            <InputOTP
+                              data-ocid={
+                                resetStep === "new"
+                                  ? "payments.reset_pin.new_input"
+                                  : "payments.reset_pin.confirm_input"
+                              }
+                              maxLength={6}
+                              value={
+                                resetStep === "new"
+                                  ? resetNewPin
+                                  : resetConfirmPin
+                              }
+                              onChange={(v) => {
+                                setResetError(false);
+                                if (resetStep === "new") setResetNewPin(v);
+                                else setResetConfirmPin(v);
+                              }}
+                            >
+                              <InputOTPGroup className="gap-1.5">
+                                {[0, 1, 2, 3, 4, 5].map((i) => (
+                                  <InputOTPSlot
+                                    key={i}
+                                    index={i}
+                                    className="h-12 w-10 text-base font-mono font-bold bg-background border-border data-[active=true]:border-primary data-[active=true]:ring-primary/30 text-foreground"
+                                  />
+                                ))}
+                              </InputOTPGroup>
+                            </InputOTP>
+                          </motion.div>
+                          {resetError && resetStep === "confirm" && (
+                            <motion.p
+                              data-ocid="payments.reset_pin.error_state"
+                              initial={{ opacity: 0, y: -4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="text-xs font-mono text-destructive flex items-center gap-1.5"
+                            >
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              PINs do not match.
+                            </motion.p>
+                          )}
+                        </>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <AlertDialogFooter className="gap-2">
+                  {resetStep === "success" ? (
+                    <Button
+                      data-ocid="payments.reset_pin.done_button"
+                      onClick={() => {
+                        setDialogStep("pin");
+                        setPinValue("");
+                        setPinError(false);
+                      }}
+                      className="font-mono text-sm bg-primary/20 hover:bg-primary/30 text-primary border border-primary/40 hover:border-primary/60"
+                      variant="outline"
+                    >
+                      <Shield className="w-4 h-4 mr-2" />
+                      Enter PIN to Withdraw
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        data-ocid="payments.reset_pin.back_button"
+                        variant="outline"
+                        onClick={() => {
+                          if (resetStep === "verify") {
+                            setDialogStep("pin");
+                          } else if (resetStep === "new") {
+                            setResetStep("verify");
+                          } else if (resetStep === "confirm") {
+                            setResetStep("new");
+                            setResetConfirmPin("");
+                            setResetError(false);
+                          }
+                        }}
+                        className="font-mono text-sm"
+                      >
+                        ← Back
+                      </Button>
+                      {(resetStep === "new" || resetStep === "confirm") && (
+                        <Button
+                          data-ocid="payments.reset_pin.submit_button"
+                          onClick={() => {
+                            if (resetStep === "new") {
+                              if (resetNewPin.length === 6) {
+                                setResetStep("confirm");
+                                setResetConfirmPin("");
+                                setResetError(false);
+                              }
+                            } else if (resetStep === "confirm") {
+                              if (resetConfirmPin === resetNewPin) {
+                                resetPin(resetNewPin);
+                                setResetStep("success");
+                                toast.success("PIN reset successfully");
+                              } else {
+                                setResetError(true);
+                                setResetConfirmPin("");
+                              }
+                            }
+                          }}
+                          disabled={
+                            resetStep === "new"
+                              ? resetNewPin.length !== 6
+                              : resetConfirmPin.length !== 6
+                          }
+                          className="font-mono text-sm bg-primary/20 hover:bg-primary/30 text-primary border border-primary/40 hover:border-primary/60 disabled:opacity-40"
+                          variant="outline"
+                        >
+                          {resetStep === "new" ? "Next →" : "Reset PIN"}
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </AlertDialogFooter>
+              </motion.div>
+            )}
           </AlertDialogContent>
         </AlertDialog>
       </div>

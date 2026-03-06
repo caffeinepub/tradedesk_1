@@ -27,10 +27,59 @@
 }
 
 @layer base {
+  /* ─── Bright (Light) Theme — Default ───────────────────────────── */
   :root {
     --radius: 0.375rem;
 
-    /* TradeDesk Dark Terminal Theme */
+    --background: 0.97 0.005 250;
+    --foreground: 0.14 0.018 255;
+    --card: 0.99 0.003 250;
+    --card-foreground: 0.14 0.018 255;
+    --popover: 0.99 0.003 250;
+    --popover-foreground: 0.14 0.018 255;
+    --primary: 0.55 0.18 165;
+    --primary-foreground: 0.98 0.005 250;
+    --secondary: 0.93 0.01 250;
+    --secondary-foreground: 0.25 0.015 255;
+    --muted: 0.93 0.008 250;
+    --muted-foreground: 0.48 0.018 250;
+    --accent: 0.92 0.01 250;
+    --accent-foreground: 0.18 0.018 255;
+    --destructive: 0.55 0.22 25;
+    --destructive-foreground: 0.98 0 0;
+    --border: 0.87 0.012 250;
+    --input: 0.90 0.01 250;
+    --ring: 0.55 0.18 165;
+
+    /* Chart colors */
+    --chart-1: 0.55 0.18 165;
+    --chart-2: 0.58 0.19 45;
+    --chart-3: 0.55 0.22 25;
+    --chart-4: 0.50 0.18 280;
+    --chart-5: 0.52 0.14 200;
+
+    /* Sidebar */
+    --sidebar: 0.96 0.006 250;
+    --sidebar-foreground: 0.20 0.018 255;
+    --sidebar-primary: 0.55 0.18 165;
+    --sidebar-primary-foreground: 0.98 0.005 250;
+    --sidebar-accent: 0.91 0.012 250;
+    --sidebar-accent-foreground: 0.20 0.018 255;
+    --sidebar-border: 0.88 0.012 250;
+    --sidebar-ring: 0.55 0.18 165;
+
+    /* Custom semantic tokens */
+    --profit: 0.50 0.17 165;
+    --profit-muted: 0.88 0.06 165;
+    --loss: 0.52 0.22 25;
+    --loss-muted: 0.92 0.06 25;
+    --buy: 0.50 0.19 165;
+    --sell: 0.52 0.22 25;
+    --price-glow: 0.55 0.18 165;
+  }
+
+  /* ─── Dark Theme ────────────────────────────────────────────────── */
+  .dark {
     --background: 0.12 0.005 250;
     --foreground: 0.92 0.01 210;
     --card: 0.155 0.008 250;
@@ -83,6 +132,10 @@
   }
 
   html {
+    color-scheme: light;
+  }
+
+  html.dark {
     color-scheme: dark;
   }
 
@@ -95,9 +148,15 @@
   /* Terminal grid background */
   .terminal-grid {
     background-image:
+      linear-gradient(oklch(0.55 0.18 165 / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(0.55 0.18 165 / 0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .dark .terminal-grid {
+    background-image:
       linear-gradient(oklch(0.78 0.18 165 / 0.03) 1px, transparent 1px),
       linear-gradient(90deg, oklch(0.78 0.18 165 / 0.03) 1px, transparent 1px);
-    background-size: 32px 32px;
   }
 
   /* Mono number display */
@@ -109,11 +168,17 @@
   /* Price glow effect */
   .price-positive {
     color: oklch(var(--profit));
+  }
+
+  .dark .price-positive {
     text-shadow: 0 0 12px oklch(var(--profit) / 0.4);
   }
 
   .price-negative {
     color: oklch(var(--loss));
+  }
+
+  .dark .price-negative {
     text-shadow: 0 0 12px oklch(var(--loss) / 0.4);
   }
 
@@ -136,11 +201,25 @@
   .glow-card {
     box-shadow:
       0 0 0 1px oklch(var(--border)),
+      0 2px 12px oklch(0 0 0 / 0.06),
+      inset 0 1px 0 oklch(var(--primary) / 0.04);
+  }
+
+  .dark .glow-card {
+    box-shadow:
+      0 0 0 1px oklch(var(--border)),
       0 4px 24px oklch(0 0 0 / 0.4),
       inset 0 1px 0 oklch(var(--primary) / 0.06);
   }
 
   .glow-card:hover {
+    box-shadow:
+      0 0 0 1px oklch(var(--primary) / 0.25),
+      0 4px 20px oklch(0 0 0 / 0.1),
+      inset 0 1px 0 oklch(var(--primary) / 0.08);
+  }
+
+  .dark .glow-card:hover {
     box-shadow:
       0 0 0 1px oklch(var(--primary) / 0.3),
       0 4px 32px oklch(0 0 0 / 0.5),

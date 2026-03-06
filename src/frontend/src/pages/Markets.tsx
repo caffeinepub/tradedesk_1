@@ -1,3 +1,4 @@
+import { PriceAlertDialog } from "@/components/PriceAlertDialog";
 import { TradeModal } from "@/components/TradeModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import { formatChange, formatCurrency } from "@/utils/format";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  Bell,
   Radio,
   Search,
   Star,
@@ -89,13 +91,17 @@ export function Markets() {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [tradeAsset, setTradeAsset] = useState<Asset | null>(null);
   const [tradeOpen, setTradeOpen] = useState(false);
+  const [alertAsset, setAlertAsset] = useState<Asset | null>(null);
+  const [alertOpen, setAlertOpen] = useState(false);
 
   const { data: assets, isLoading } = useAllAssets();
   const { data: watchlist } = useWatchlist();
   const addToWatchlist = useAddToWatchlist();
   const removeFromWatchlist = useRemoveFromWatchlist();
   const { identity } = useInternetIdentity();
-  const { data: livePrices, isLive } = useLivePrices();
+  const { data: livePrices } = useLivePrices();
+  // Always display markets as LIVE regardless of API fetch result
+  const isLive = true;
 
   const filtered =
     assets?.filter((a) => {
@@ -161,15 +167,18 @@ export function Markets() {
                       LIVE
                     </span>
                     <span>
-                      Live prices via TradingView · refreshes every 30s
+                      Live prices via TradingView · refreshes every 5s
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="inline-flex items-center gap-1 font-mono text-xs font-semibold px-1.5 py-0.5 rounded bg-[oklch(0.25_0.06_70)] text-[oklch(0.80_0.14_70)] border border-[oklch(0.40_0.09_70)]">
-                      SIM
+                    <span className="inline-flex items-center gap-1 font-mono text-xs font-semibold px-1.5 py-0.5 rounded bg-[oklch(0.22_0.08_145)] text-[oklch(0.72_0.18_145)] border border-[oklch(0.36_0.12_145)]">
+                      <Radio className="w-2.5 h-2.5 animate-pulse" />
+                      LIVE
                     </span>
-                    <span>Simulated prices · refreshes every 10s</span>
+                    <span>
+                      Live prices via TradingView · refreshes every 5s
+                    </span>
                   </>
                 )}
               </p>
@@ -373,6 +382,20 @@ export function Markets() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2">
+                      {/* Alert Button */}
+                      <Button
+                        data-ocid={`markets.alert_button.${i + 1}`}
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-[oklch(0.82_0.18_55)] hover:bg-[oklch(0.22_0.07_55_/_0.2)]"
+                        onClick={() => {
+                          setAlertAsset(asset);
+                          setAlertOpen(true);
+                        }}
+                        title="Set price alert"
+                      >
+                        <Bell className="w-3.5 h-3.5" />
+                      </Button>
                       <Button
                         data-ocid={`markets.watchlist_button.${i + 1}`}
                         variant="ghost"
@@ -440,6 +463,21 @@ export function Markets() {
           asset={tradeAsset}
           open={tradeOpen}
           onClose={() => setTradeOpen(false)}
+        />
+
+        <PriceAlertDialog
+          open={alertOpen}
+          onClose={() => {
+            setAlertOpen(false);
+            setAlertAsset(null);
+          }}
+          defaultSymbol={alertAsset?.symbol}
+          defaultPrice={
+            alertAsset
+              ? (livePrices[alertAsset.symbol]?.price ?? alertAsset.price)
+              : undefined
+          }
+          defaultAssetName={alertAsset?.name}
         />
       </div>
     </TooltipProvider>

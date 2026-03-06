@@ -1,8 +1,15 @@
 import { Toaster } from "@/components/ui/sonner";
+import { useTheme } from "@/context/ThemeContext";
+import { useLivePrices } from "@/hooks/useLivePrices";
+import { usePriceAlertChecker } from "@/hooks/usePriceAlertChecker";
 import { Outlet } from "@tanstack/react-router";
 import { Sidebar } from "./Sidebar";
 
 export function AppLayout() {
+  const { isDark } = useTheme();
+  const { data: livePrices } = useLivePrices();
+  usePriceAlertChecker(livePrices);
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar />
@@ -10,7 +17,7 @@ export function AppLayout() {
         <Outlet />
       </main>
       <Toaster
-        theme="dark"
+        theme={isDark ? "dark" : "light"}
         toastOptions={{
           classNames: {
             toast: "bg-card border-border text-foreground font-mono text-sm",

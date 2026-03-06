@@ -36,6 +36,8 @@ interface TradingViewChartProps {
   height?: number;
   interval?: string;
   hideToolbars?: boolean;
+  timezone?: string;
+  studies?: string[];
 }
 
 export function TradingViewChart({
@@ -43,6 +45,8 @@ export function TradingViewChart({
   height = 400,
   interval = "D",
   hideToolbars = false,
+  timezone = "Etc/UTC",
+  studies = [],
 }: TradingViewChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -73,7 +77,7 @@ export function TradingViewChart({
           container_id: containerId,
           symbol: tvSymbol,
           interval: interval,
-          timezone: "Etc/UTC",
+          timezone: timezone,
           theme: "dark",
           style: "1",
           locale: "en",
@@ -89,6 +93,7 @@ export function TradingViewChart({
           withdateranges: !hideToolbars,
           hide_side_toolbar: hideToolbars,
           allow_symbol_change: false,
+          studies: studies,
         });
       } catch {
         // Widget init failed silently
@@ -124,7 +129,7 @@ export function TradingViewChart({
         container.innerHTML = "";
       }
     };
-  }, [symbol, tvSymbol, interval, hideToolbars, height]);
+  }, [symbol, tvSymbol, interval, hideToolbars, height, timezone, studies]);
 
   if (!tvSymbol) {
     return (
