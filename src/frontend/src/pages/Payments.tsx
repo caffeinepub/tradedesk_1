@@ -415,7 +415,7 @@ function UPIDepositSection({
           <div className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2.5">
             <Smartphone className="w-4 h-4 text-primary shrink-0" />
             <span className="font-mono text-sm text-primary font-semibold">
-              tradedesk@ybl
+              vertex@ybl
             </span>
           </div>
         </div>
@@ -457,7 +457,7 @@ function UPIDepositSection({
         <Info className="w-3.5 h-3.5 text-primary/60 mt-0.5 shrink-0" />
         <p className="text-[11px] text-muted-foreground font-mono leading-relaxed">
           Open your UPI app, scan the QR code or enter the VPA{" "}
-          <span className="text-primary">tradedesk@ybl</span>, enter the amount{" "}
+          <span className="text-primary">vertex@ybl</span>, enter the amount{" "}
           {amount ? <span className="text-primary">${amount}</span> : "below"},
           and confirm payment. Funds will be credited within seconds.
         </p>

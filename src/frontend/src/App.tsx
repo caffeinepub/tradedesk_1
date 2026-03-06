@@ -4,10 +4,12 @@ import { Charts } from "@/pages/Charts";
 import { Dashboard } from "@/pages/Dashboard";
 import { History } from "@/pages/History";
 import { KYC } from "@/pages/KYC";
+import { KYCAdmin } from "@/pages/KYCAdmin";
 import { Login } from "@/pages/Login";
 import { Markets } from "@/pages/Markets";
 import { Payments } from "@/pages/Payments";
 import { Portfolio } from "@/pages/Portfolio";
+import { Profile } from "@/pages/Profile";
 import { Watchlist } from "@/pages/Watchlist";
 import {
   Outlet,
@@ -84,6 +86,18 @@ const kycRoute = createRoute({
   component: KYC,
 });
 
+const kycAdminRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/kyc-admin",
+  component: KYCAdmin,
+});
+
+const profileRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/profile",
+  component: Profile,
+});
+
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
@@ -99,7 +113,9 @@ const routeTree = rootRoute.addChildren([
     historyRoute,
     watchlistRoute,
     kycRoute,
+    kycAdminRoute,
     paymentsRoute,
+    profileRoute,
   ]),
   loginRoute,
 ]);

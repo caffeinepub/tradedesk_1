@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAccountMode } from "@/context/AccountModeContext";
 import { useInternetIdentity } from "@/hooks/useInternetIdentity";
 import { useBalance } from "@/hooks/useQueries";
 import { cn } from "@/lib/utils";
@@ -8,6 +9,8 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   BarChart2,
   Briefcase,
+  ClipboardList,
+  FlaskConical,
   History,
   LayoutDashboard,
   LineChart,
@@ -16,8 +19,9 @@ import {
   LogOut,
   ShieldCheck,
   Star,
-  TrendingUp,
+  User,
   Wallet,
+  Zap,
 } from "lucide-react";
 
 const NAV_LINKS = [
@@ -69,12 +73,19 @@ const NAV_LINKS = [
     icon: Wallet,
     ocid: "nav.payments.link",
   },
+  {
+    to: "/profile",
+    label: "Profile",
+    icon: User,
+    ocid: "nav.profile.link",
+  },
 ];
 
 export function Sidebar() {
   const { data: balance, isLoading: balanceLoading } = useBalance();
   const { login, clear, loginStatus, identity, isInitializing } =
     useInternetIdentity();
+  const { accountMode } = useAccountMode();
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
 
@@ -88,19 +99,13 @@ export function Sidebar() {
 
       <div className="relative z-10 flex flex-col h-full">
         {/* Logo */}
-        <div className="px-4 py-5 border-b border-sidebar-border">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded bg-primary/20 border border-primary/40 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <span className="font-display font-bold text-sidebar-foreground tracking-tight text-base">
-                TradeDesk
-              </span>
-              <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest leading-none mt-0.5">
-                Terminal
-              </div>
-            </div>
+        <div className="px-4 py-4 border-b border-sidebar-border">
+          <div className="flex items-center">
+            <img
+              src="/assets/generated/vertex-logo-transparent.dim_600x200.png"
+              alt="Vertex"
+              className="h-9 w-auto object-contain"
+            />
           </div>
         </div>
 
@@ -108,14 +113,44 @@ export function Sidebar() {
         {isLoggedIn && (
           <div className="px-3 py-3 border-b border-sidebar-border">
             <div className="rounded-md bg-accent/40 border border-sidebar-border px-3 py-2.5">
-              <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest mb-1">
-                Available Balance
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">
+                  {accountMode === "demo"
+                    ? "Demo Balance"
+                    : "Available Balance"}
+                </div>
+                <div
+                  className={cn(
+                    "flex items-center gap-1 text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded border",
+                    accountMode === "real"
+                      ? "bg-[oklch(0.22_0.08_145)] text-[oklch(0.72_0.18_145)] border-[oklch(0.36_0.12_145)]"
+                      : "bg-[oklch(0.22_0.06_260)] text-[oklch(0.72_0.14_260)] border-[oklch(0.36_0.10_260)]",
+                  )}
+                >
+                  {accountMode === "real" ? (
+                    <Zap className="w-2 h-2" />
+                  ) : (
+                    <FlaskConical className="w-2 h-2" />
+                  )}
+                  {accountMode.toUpperCase()}
+                </div>
               </div>
               {balanceLoading ? (
                 <Skeleton className="h-5 w-28 bg-muted/50" />
               ) : (
-                <div className="font-mono text-sm font-bold text-primary">
-                  {balance !== undefined ? formatCurrency(balance) : "—"}
+                <div
+                  className={cn(
+                    "font-mono text-sm font-bold",
+                    accountMode === "real"
+                      ? "text-[oklch(0.72_0.18_145)]"
+                      : "text-[oklch(0.72_0.14_260)]",
+                  )}
+                >
+                  {accountMode === "demo"
+                    ? "$10,000.00"
+                    : balance !== undefined
+                      ? formatCurrency(balance)
+                      : "—"}
                 </div>
               )}
             </div>
@@ -157,6 +192,47 @@ export function Sidebar() {
               </Link>
             );
           })}
+
+          {/* Staff Section */}
+          <div className="pt-3 pb-1">
+            <div className="px-3 pb-1.5 flex items-center gap-2">
+              <div className="flex-1 h-px bg-border/60" />
+              <span className="text-[9px] font-mono text-muted-foreground/50 uppercase tracking-widest shrink-0">
+                Staff
+              </span>
+              <div className="flex-1 h-px bg-border/60" />
+            </div>
+            <Link to="/kyc-admin" data-ocid="nav.kyc_admin.link">
+              <div
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all group",
+                  currentPath === "/kyc-admin"
+                    ? "bg-sidebar-primary/15 text-primary border border-primary/25"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground border border-transparent",
+                )}
+              >
+                <ClipboardList
+                  className={cn(
+                    "w-4 h-4 shrink-0 transition-colors",
+                    currentPath === "/kyc-admin"
+                      ? "text-primary"
+                      : "text-muted-foreground group-hover:text-foreground",
+                  )}
+                />
+                <span
+                  className={cn(
+                    "font-medium",
+                    currentPath === "/kyc-admin" && "font-semibold",
+                  )}
+                >
+                  KYC Review
+                </span>
+                {currentPath === "/kyc-admin" && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
+                )}
+              </div>
+            </Link>
+          </div>
         </nav>
 
         {/* Auth Section */}

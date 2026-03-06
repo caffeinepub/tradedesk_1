@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useInternetIdentity } from "@/hooks/useInternetIdentity";
-import { Globe, Loader2, Shield, TrendingUp, Zap } from "lucide-react";
+import { Globe, Loader2, Shield, Zap } from "lucide-react";
 import { motion } from "motion/react";
 
 export function Login() {
@@ -34,17 +34,18 @@ export function Login() {
           {/* Logo */}
           <div className="text-center space-y-3">
             <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.1, duration: 0.4 }}
-              className="w-16 h-16 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto"
+              className="flex items-center justify-center mx-auto"
             >
-              <TrendingUp className="w-8 h-8 text-primary" />
+              <img
+                src="/assets/generated/vertex-logo-transparent.dim_600x200.png"
+                alt="Vertex"
+                className="h-12 w-auto object-contain"
+              />
             </motion.div>
             <div>
-              <h1 className="font-display text-3xl font-bold text-foreground tracking-tight">
-                TradeDesk
-              </h1>
               <p className="text-muted-foreground text-sm font-mono mt-1">
                 Professional Trading Terminal
               </p>
