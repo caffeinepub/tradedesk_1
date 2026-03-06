@@ -10,7 +10,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useAccountMode } from "@/context/AccountModeContext";
 import { useInternetIdentity } from "@/hooks/useInternetIdentity";
 import { useLivePrices } from "@/hooks/useLivePrices";
 import {
@@ -100,7 +99,6 @@ export function Markets() {
   const addToWatchlist = useAddToWatchlist();
   const removeFromWatchlist = useRemoveFromWatchlist();
   const { identity } = useInternetIdentity();
-  const { accountMode } = useAccountMode();
   const { data: livePrices } = useLivePrices();
   // Always display markets as LIVE regardless of API fetch result
   const isLive = true;
@@ -136,11 +134,7 @@ export function Markets() {
   };
 
   const openTrade = (asset: Asset) => {
-    // Allow demo trading without login; real account requires sign-in
-    if (accountMode === "real" && !identity) {
-      toast.error("Please sign in to trade on a Real account");
-      return;
-    }
+    // Always open the trade modal; it handles auth/demo logic internally
     setTradeAsset(asset);
     setTradeOpen(true);
   };

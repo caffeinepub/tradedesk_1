@@ -87,9 +87,10 @@ export function TradeModal({
   const isPending = buy.isPending || sell.isPending;
   const qty = Number.parseFloat(quantity) || 0;
 
-  // Overlay live price if available, otherwise fall back to backend price
+  // Overlay live price if available, otherwise fall back to backend/static price
   const liveData = asset ? livePrices[asset.symbol] : null;
-  const displayPrice = liveData?.price ?? asset?.price ?? 0;
+  const displayPrice =
+    (liveData?.price || 0) > 0 ? liveData!.price : (asset?.price ?? 0);
   const displayChange = liveData?.change24h ?? asset?.change24h ?? 0;
 
   const estimatedTotal = qty * displayPrice;
@@ -612,14 +613,21 @@ export function TradeModal({
                     onClick={() => {
                       if (!isDemoMode && !isLoggedIn) {
                         login();
-                      } else if (qty > 0) {
-                        setShowConfirm(true);
+                        return;
                       }
+                      if (qty <= 0) {
+                        toast.error("Enter a valid quantity");
+                        return;
+                      }
+                      if (!asset || displayPrice <= 0) {
+                        toast.error(
+                          "Asset price unavailable. Please try again.",
+                        );
+                        return;
+                      }
+                      setShowConfirm(true);
                     }}
-                    disabled={
-                      isPending ||
-                      (isDemoMode ? qty <= 0 : isLoggedIn ? qty <= 0 : false)
-                    }
+                    disabled={isPending}
                     className={`flex-1 font-mono font-semibold ${
                       side === "buy"
                         ? "bg-profit hover:bg-profit/90 text-background"

@@ -117,7 +117,8 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
   };
 
   const liveData = livePrices[symbol];
-  const displayPrice = liveData?.price ?? asset?.price ?? 0;
+  const displayPrice =
+    (liveData?.price || 0) > 0 ? liveData!.price : (asset?.price ?? 0);
   const displayChange = liveData?.change24h ?? asset?.change24h ?? 0;
   const isPos = displayChange >= 0;
 
@@ -1336,15 +1337,22 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
                   data-ocid="order.submit_button"
                   onClick={() => {
                     if (!isDemoMode && !isLoggedIn) {
-                      handleSubmit();
-                    } else if (qty > 0) {
-                      setShowConfirm(true);
+                      login();
+                      return;
                     }
+                    if (qty <= 0) {
+                      toast.error("Enter a valid quantity");
+                      return;
+                    }
+                    if (displayPrice <= 0) {
+                      toast.error(
+                        "Price not available yet, please wait a moment",
+                      );
+                      return;
+                    }
+                    setShowConfirm(true);
                   }}
-                  disabled={
-                    isPending ||
-                    (isDemoMode ? qty <= 0 : isLoggedIn ? qty <= 0 : false)
-                  }
+                  disabled={isPending}
                   className={`w-full font-mono font-bold tracking-wide text-sm transition-colors ${
                     side === "buy"
                       ? "bg-profit hover:bg-profit/90 text-background"

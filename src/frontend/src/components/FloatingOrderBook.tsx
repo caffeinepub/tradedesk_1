@@ -16,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { TradeType } from "../backend.d";
 
@@ -40,6 +40,19 @@ export function FloatingOrderBook() {
       return "all";
     }
   });
+
+  // Listen for external "open to buy positions" events from the P&L ticker
+  useEffect(() => {
+    const handler = () => {
+      setOpen(true);
+      setActiveTab("buy");
+      try {
+        localStorage.setItem("vertex_orders_active_tab", "buy");
+      } catch {}
+    };
+    window.addEventListener("vertex:open-orders-buy", handler);
+    return () => window.removeEventListener("vertex:open-orders-buy", handler);
+  }, []);
   const [sortMode, setSortMode] = useState<"pnl" | "time">(() => {
     try {
       const stored = localStorage.getItem("vertex_orders_sort_mode");

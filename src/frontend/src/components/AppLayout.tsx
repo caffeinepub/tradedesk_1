@@ -4,6 +4,7 @@ import { useLivePrices } from "@/hooks/useLivePrices";
 import { usePriceAlertChecker } from "@/hooks/usePriceAlertChecker";
 import { Outlet } from "@tanstack/react-router";
 import { FloatingOrderBook } from "./FloatingOrderBook";
+import { PnLTicker } from "./PnLTicker";
 import { Sidebar } from "./Sidebar";
 
 export function AppLayout() {
@@ -18,6 +19,7 @@ export function AppLayout() {
         <Outlet />
       </main>
       <FloatingOrderBook />
+      <PnLTicker />
       <Toaster
         theme={isDark ? "dark" : "light"}
         toastOptions={{
