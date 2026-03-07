@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAccountMode } from "@/context/AccountModeContext";
+import { useAlpacaAccount } from "@/hooks/useAlpacaAccount";
 import { useLivePrices } from "@/hooks/useLivePrices";
 import {
   useAllAssets,
@@ -14,9 +16,11 @@ import {
 import { formatChange, formatCurrency, formatTimestamp } from "@/utils/format";
 import { Link } from "@tanstack/react-router";
 import {
+  AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
   Briefcase,
+  Building2,
   Clock,
   DollarSign,
   Radio,
@@ -44,6 +48,13 @@ export function Dashboard() {
   const { data: watchlist } = useWatchlist();
   const { data: allAssets } = useAllAssets();
   const { data: livePrices, isLive } = useLivePrices();
+  const { accountMode } = useAccountMode();
+  const isRealAccount = accountMode === "real";
+  const {
+    data: alpacaAccount,
+    isLoading: alpacaLoading,
+    isError: alpacaError,
+  } = useAlpacaAccount();
 
   const [tradeAsset, setTradeAsset] = useState<Asset | null>(null);
   const [tradeOpen, setTradeOpen] = useState(false);
@@ -164,6 +175,107 @@ export function Dashboard() {
           );
         })}
       </div>
+
+      {/* Alpaca Account Card — only visible in Real mode */}
+      {isRealAccount && (
+        <motion.div
+          custom={5}
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+        >
+          <Card className="glow-card bg-card border-border overflow-hidden">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Building2
+                  className="w-4 h-4"
+                  style={{ color: "oklch(0.72 0.18 145)" }}
+                />
+                Alpaca Live Account
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded uppercase tracking-widest"
+                  style={{
+                    background: "oklch(0.14 0.06 145 / 0.80)",
+                    border: "1px solid oklch(0.38 0.14 145 / 0.60)",
+                    color: "oklch(0.75 0.18 145)",
+                  }}
+                  data-ocid="dashboard.alpaca_live_badge"
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full animate-pulse"
+                    style={{ background: "oklch(0.72 0.18 145)" }}
+                  />
+                  ALPACA LIVE
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {alpacaLoading ? (
+                <div
+                  className="grid grid-cols-3 gap-4"
+                  data-ocid="dashboard.alpaca.loading_state"
+                >
+                  {["a", "b", "c"].map((k) => (
+                    <div key={k} className="space-y-1">
+                      <Skeleton className="h-3 w-20 bg-muted/50" />
+                      <Skeleton className="h-6 w-28 bg-muted/50" />
+                    </div>
+                  ))}
+                </div>
+              ) : alpacaError || !alpacaAccount ? (
+                <div
+                  data-ocid="dashboard.alpaca.error_state"
+                  className="flex items-center gap-2 rounded-md border border-red-900/50 bg-red-950/20 px-3 py-2.5"
+                >
+                  <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                  <div>
+                    <p className="text-xs font-mono font-semibold text-red-400">
+                      Connection Failed
+                    </p>
+                    <p className="text-[11px] font-mono text-red-300/70">
+                      Check API keys or network. Alpaca may be unavailable.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
+                      Portfolio Value
+                    </div>
+                    <div
+                      className="font-mono text-lg font-bold"
+                      style={{ color: "oklch(0.75 0.18 145)" }}
+                    >
+                      {formatCurrency(
+                        Number.parseFloat(alpacaAccount.portfolio_value),
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
+                      Buying Power
+                    </div>
+                    <div className="font-mono text-lg font-bold text-foreground">
+                      {formatCurrency(
+                        Number.parseFloat(alpacaAccount.buying_power),
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground mb-1">
+                      Cash
+                    </div>
+                    <div className="font-mono text-lg font-bold text-foreground">
+                      {formatCurrency(Number.parseFloat(alpacaAccount.cash))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Watchlist Preview */}

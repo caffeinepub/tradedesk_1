@@ -2,10 +2,19 @@ import { TradeModal } from "@/components/TradeModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAccountMode } from "@/context/AccountModeContext";
+import { useAlpacaPositions } from "@/hooks/useAlpacaAccount";
 import { useLivePrices } from "@/hooks/useLivePrices";
 import { useAllAssets, usePortfolioAssets } from "@/hooks/useQueries";
 import { formatChange, formatCurrency } from "@/utils/format";
-import { Briefcase, Radio, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  AlertTriangle,
+  Briefcase,
+  Building2,
+  Radio,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import type { Asset } from "../backend.d";
@@ -14,6 +23,13 @@ export function Portfolio() {
   const { data: portfolio, isLoading } = usePortfolioAssets();
   const { data: allAssets } = useAllAssets();
   const { data: livePrices, isLive } = useLivePrices();
+  const { accountMode } = useAccountMode();
+  const isRealAccount = accountMode === "real";
+  const {
+    data: alpacaPositions,
+    isLoading: alpacaLoading,
+    isError: alpacaError,
+  } = useAlpacaPositions();
   const [tradeAsset, setTradeAsset] = useState<Asset | null>(null);
   const [tradeOpen, setTradeOpen] = useState(false);
 
@@ -201,6 +217,164 @@ export function Portfolio() {
           </div>
         )}
       </motion.div>
+
+      {/* Alpaca Live Positions — only visible in Real mode */}
+      {isRealAccount && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+        >
+          {/* Section header */}
+          <div className="flex items-center gap-2 mb-3">
+            <Building2
+              className="w-4 h-4"
+              style={{ color: "oklch(0.72 0.18 145)" }}
+            />
+            <h2 className="text-sm font-semibold font-mono text-foreground">
+              Live Positions (Alpaca)
+            </h2>
+            <span
+              data-ocid="portfolio.alpaca_live_badge"
+              className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded uppercase tracking-widest"
+              style={{
+                background: "oklch(0.14 0.06 145 / 0.80)",
+                border: "1px solid oklch(0.38 0.14 145 / 0.60)",
+                color: "oklch(0.75 0.18 145)",
+              }}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full animate-pulse"
+                style={{ background: "oklch(0.72 0.18 145)" }}
+              />
+              ALPACA LIVE
+            </span>
+          </div>
+
+          <div
+            className="glow-card rounded-lg border border-border overflow-hidden"
+            data-ocid="portfolio.alpaca.table"
+          >
+            {/* Header */}
+            <div className="grid grid-cols-[1fr_0.7fr_1fr_1fr_1fr] gap-4 px-4 py-2.5 bg-muted/40 border-b border-border">
+              {[
+                "Symbol",
+                "Qty",
+                "Avg Entry",
+                "Current Price",
+                "Unrealised P&L",
+              ].map((h) => (
+                <div
+                  key={h}
+                  className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest"
+                >
+                  {h}
+                </div>
+              ))}
+            </div>
+
+            {alpacaLoading ? (
+              <div
+                className="divide-y divide-border"
+                data-ocid="portfolio.alpaca.loading_state"
+              >
+                {["sk1", "sk2", "sk3"].map((k) => (
+                  <div
+                    key={k}
+                    className="grid grid-cols-[1fr_0.7fr_1fr_1fr_1fr] gap-4 px-4 py-3"
+                  >
+                    {["a", "b", "c", "d", "e"].map((j) => (
+                      <Skeleton key={j} className="h-5 w-full bg-muted/50" />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : alpacaError ? (
+              <div
+                className="flex items-center gap-2 px-4 py-6"
+                data-ocid="portfolio.alpaca.error_state"
+              >
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                <p className="text-xs font-mono text-red-400">
+                  Failed to load Alpaca positions. Check API keys or network.
+                </p>
+              </div>
+            ) : !alpacaPositions || alpacaPositions.length === 0 ? (
+              <div
+                className="text-center py-10 space-y-2"
+                data-ocid="portfolio.alpaca.empty_state"
+              >
+                <p className="text-muted-foreground text-sm font-mono">
+                  No live positions on Alpaca
+                </p>
+                <p className="text-muted-foreground/60 text-xs">
+                  Place a real order to see positions here
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {alpacaPositions.map((pos, i) => {
+                  const pnl = Number.parseFloat(pos.unrealized_pl);
+                  const pnlPct = Number.parseFloat(pos.unrealized_plpc) * 100;
+                  const isProfit = pnl >= 0;
+                  return (
+                    <div
+                      key={pos.symbol}
+                      data-ocid={`portfolio.alpaca.item.${i + 1}`}
+                      className="grid grid-cols-[1fr_0.7fr_1fr_1fr_1fr] gap-4 px-4 py-3.5 items-center hover:bg-accent/30 transition-colors"
+                      style={{
+                        background: isProfit
+                          ? "oklch(0.18 0.05 145 / 0.08)"
+                          : "oklch(0.18 0.05 15 / 0.08)",
+                      }}
+                    >
+                      {/* Symbol */}
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded bg-primary/10 border border-primary/20 flex items-center justify-center text-[10px] font-mono font-bold text-primary shrink-0">
+                          {pos.symbol.replace("/USD", "").slice(0, 2)}
+                        </div>
+                        <span className="font-mono text-sm font-bold">
+                          {pos.symbol}
+                        </span>
+                      </div>
+
+                      {/* Quantity */}
+                      <span className="font-mono text-sm">
+                        {Number.parseFloat(pos.qty).toFixed(4)}
+                      </span>
+
+                      {/* Avg Entry */}
+                      <span className="font-mono text-sm">
+                        {formatCurrency(Number.parseFloat(pos.avg_entry_price))}
+                      </span>
+
+                      {/* Current Price */}
+                      <span className="font-mono text-sm">
+                        {formatCurrency(Number.parseFloat(pos.current_price))}
+                      </span>
+
+                      {/* P&L */}
+                      <div>
+                        <div
+                          className={`font-mono text-sm font-semibold ${isProfit ? "price-positive" : "price-negative"}`}
+                        >
+                          {isProfit ? "+" : ""}
+                          {formatCurrency(pnl)}
+                        </div>
+                        <div
+                          className={`font-mono text-[11px] ${isProfit ? "price-positive" : "price-negative"}`}
+                        >
+                          {isProfit ? "▲" : "▼"} {Math.abs(pnlPct).toFixed(2)}%
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
 
       <TradeModal
         asset={tradeAsset}

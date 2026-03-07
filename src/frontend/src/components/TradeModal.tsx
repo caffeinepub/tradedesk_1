@@ -25,10 +25,12 @@ import { useDemoAccount } from "@/context/DemoAccountContext";
 import { useInternetIdentity } from "@/hooks/useInternetIdentity";
 import { useLivePrices } from "@/hooks/useLivePrices";
 import { useBalance, useBuy, useSell } from "@/hooks/useQueries";
+import { placeAlpacaOrder, toAlpacaSymbol } from "@/utils/alpacaApi";
 import { formatChange, formatCurrency } from "@/utils/format";
 import {
   AlertTriangle,
   BarChart2,
+  Building2,
   ChevronDown,
   ChevronUp,
   Edit3,
@@ -133,29 +135,28 @@ export function TradeModal({
       return;
     }
 
-    // Real mode: require login
-    if (!isLoggedIn) {
-      login();
+    // Real mode: route to Alpaca Live
+    const alpacaSymbol = toAlpacaSymbol(asset.symbol);
+    if (!alpacaSymbol) {
+      toast.error("Not available on Alpaca", {
+        description: `${asset.symbol} (metals/indices) cannot be traded via Alpaca Live.`,
+      });
       return;
     }
     try {
-      if (side === "buy") {
-        await buy.mutateAsync({ symbol: asset.symbol, quantity: qty });
-        toast.success(`Bought ${qty} ${asset.symbol}`, {
-          description: `Total: ${formatCurrency(estimatedTotal)}`,
-        });
-      } else {
-        await sell.mutateAsync({ symbol: asset.symbol, quantity: qty });
-        toast.success(`Sold ${qty} ${asset.symbol}`, {
-          description: `Total: ${formatCurrency(estimatedTotal)}`,
-        });
-      }
+      await placeAlpacaOrder(alpacaSymbol, qty, side);
+      toast.success(
+        `[LIVE] ${side === "buy" ? "Bought" : "Sold"} ${qty} ${asset.symbol}`,
+        {
+          description: "Order sent to Alpaca Live Market",
+        },
+      );
       setQuantity("");
       setShowConfirm(false);
       onClose();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Transaction failed";
-      toast.error("Trade failed", { description: msg });
+      const msg = err instanceof Error ? err.message : "Order failed";
+      toast.error("Alpaca order failed", { description: msg });
     }
   };
 
@@ -241,33 +242,49 @@ export function TradeModal({
                     </button>
                   </div>
                 ) : (
-                  <div
-                    data-ocid="trade.header_real_badge"
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded font-mono text-[9px] font-bold uppercase tracking-widest"
-                    style={{
-                      background: "oklch(0.14 0.06 145 / 0.80)",
-                      border: "1px solid oklch(0.38 0.14 145 / 0.60)",
-                      color: "oklch(0.75 0.18 145)",
-                    }}
-                  >
-                    <ShieldCheck
-                      style={{ width: 8, height: 8, flexShrink: 0 }}
-                    />
-                    <span>Real</span>
-                    <button
-                      type="button"
-                      data-ocid="trade.header.switch_to_demo.button"
-                      onClick={() => setShowSwitchToDemoDialog(true)}
-                      className="flex items-center gap-0.5 ml-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider transition-all duration-150 hover:opacity-90 active:scale-95"
+                  <div className="flex items-center gap-1">
+                    <div
+                      data-ocid="trade.header_alpaca_badge"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded font-mono text-[9px] font-bold uppercase tracking-widest"
                       style={{
-                        background: "oklch(0.22 0.10 300 / 0.85)",
-                        border: "1px solid oklch(0.40 0.16 300 / 0.60)",
-                        color: "oklch(0.78 0.18 300)",
+                        background: "oklch(0.14 0.06 145 / 0.80)",
+                        border: "1px solid oklch(0.38 0.14 145 / 0.60)",
+                        color: "oklch(0.75 0.18 145)",
                       }}
                     >
-                      <FlaskConical style={{ width: 7, height: 7 }} />
-                      Go Demo
-                    </button>
+                      <Building2
+                        style={{ width: 8, height: 8, flexShrink: 0 }}
+                      />
+                      <span>Alpaca Live</span>
+                    </div>
+                    <div
+                      data-ocid="trade.header_real_badge"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded font-mono text-[9px] font-bold uppercase tracking-widest"
+                      style={{
+                        background: "oklch(0.14 0.06 145 / 0.80)",
+                        border: "1px solid oklch(0.38 0.14 145 / 0.60)",
+                        color: "oklch(0.75 0.18 145)",
+                      }}
+                    >
+                      <ShieldCheck
+                        style={{ width: 8, height: 8, flexShrink: 0 }}
+                      />
+                      <span>Real</span>
+                      <button
+                        type="button"
+                        data-ocid="trade.header.switch_to_demo.button"
+                        onClick={() => setShowSwitchToDemoDialog(true)}
+                        className="flex items-center gap-0.5 ml-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider transition-all duration-150 hover:opacity-90 active:scale-95"
+                        style={{
+                          background: "oklch(0.22 0.10 300 / 0.85)",
+                          border: "1px solid oklch(0.40 0.16 300 / 0.60)",
+                          color: "oklch(0.78 0.18 300)",
+                        }}
+                      >
+                        <FlaskConical style={{ width: 7, height: 7 }} />
+                        Go Demo
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -435,7 +452,7 @@ export function TradeModal({
                     <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
                     <p className="text-[11px] font-mono text-amber-300/90 leading-snug">
                       <span className="font-bold text-amber-400">
-                        LIVE ACCOUNT
+                        ALPACA LIVE
                       </span>{" "}
                       — Real funds will be moved when you confirm.
                     </p>
@@ -509,19 +526,19 @@ export function TradeModal({
                   </div>
                 )}
 
-                {/* Live account warning */}
+                {/* Alpaca Live account warning */}
                 {isRealAccount && (
                   <div
                     data-ocid="trade.live_account_warning"
                     className="flex items-start gap-2 rounded-md border border-amber-800/60 bg-amber-950/30 px-3 py-2.5"
                   >
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+                    <Building2 className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
                     <p className="text-[11px] font-mono text-amber-300/90 leading-snug">
                       <span className="font-bold text-amber-400">
-                        LIVE ACCOUNT
+                        ALPACA LIVE
                       </span>{" "}
-                      — This order will use real funds. Double-check your
-                      quantity before confirming.
+                      — This order will be sent to Alpaca live market. Real
+                      funds will be used.
                     </p>
                   </div>
                 )}

@@ -1,37 +1,43 @@
-# TradeDesk
+# Vertex
 
 ## Current State
-- Payments page has 4 deposit methods (Card, Bank Wire, Crypto, E-Wallet) and 4 withdrawal methods
-- Transaction history shows static sample data
-- There is a "KYC Required" badge on the withdrawal tab header but no actual KYC flow
-- Backend has authorization, user profiles, balance, portfolio, trade history, and watchlist
+Full-stack trading platform with simulated buy/sell orders stored in an ICP Motoko backend. Live prices come from Binance, Yahoo Finance, and metals.live APIs. The backend handles portfolio, balance, trade history, and watchlist — all simulated. No real broker integration exists.
 
 ## Requested Changes (Diff)
 
 ### Add
-- UPI payment method as a new deposit and withdrawal option (5th method in each panel)
-  - UPI-specific form: UPI ID input field (e.g. name@upi), QR code display placeholder, virtual payment address
-  - Processing time: Instant, fee: Free, limits: min ₹100 / max ₹100,000
-- Full KYC verification flow accessible from Payments page and a new KYC page/section
-  - KYC steps: Personal Info (name, DOB, nationality, address), ID Verification (upload govt ID front/back), Selfie Verification (selfie with ID), Review & Submit
-  - KYC status levels: Unverified, Pending, Level 1 (basic), Level 2 (full)
-  - KYC banner/prompt in payments page when status is unverified or pending
-  - KYC unlocks higher deposit/withdrawal limits
-  - Backend: submitKYC, getKYCStatus functions to store KYC data per user
-- KYC page added to sidebar navigation
+- Alpaca Live Trading integration via HTTP outcalls from the frontend
+- `useAlpacaTrading` hook that calls Alpaca REST API (`api.alpaca.markets`) for:
+  - Place market buy order
+  - Place market sell order
+  - Get account info (buying power, portfolio value)
+  - Get open positions
+  - Get order history
+- Alpaca config stored securely as constants in a dedicated config file (`alpacaConfig.ts`)
+- `AlpacaAccountPanel` component on Dashboard showing Alpaca account balance, buying power, and equity
+- Alpaca order placement wired into the TradeModal and OrderPanel (Charts page) -- when Real account mode is active, orders go to Alpaca; Demo mode stays with local simulation
+- Alpaca positions synced into the Portfolio page when in Real mode
+- Alpaca order history shown in Trade History when in Real mode
+- "LIVE BROKER" badge in the order panel/modal when Alpaca is active
 
 ### Modify
-- Payments page: Add UPI as 5th payment method card in both deposit and withdrawal grids
-- UPI deposit panel: show UPI ID input, virtual payment address instructions
-- Backend: add KYC status types and submitKYC / getKYCStatus functions
+- `TradeModal` -- when account mode is Real, call Alpaca instead of backend `buy`/`sell`
+- `OrderPanel` (Charts page) -- same: Real mode routes orders to Alpaca
+- `Portfolio` page -- show Alpaca positions in Real mode alongside or replacing backend portfolio
+- `History` page -- show Alpaca order history in Real mode
+- `Dashboard` -- add Alpaca account summary card in Real mode
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. Update backend main.mo to add KYCStatus type, KYCSubmission type, per-user KYC storage, submitKYC and getKYCStatus functions
-2. Add UPI payment method to DEPOSIT_METHODS and WITHDRAW_METHODS arrays with UPI-specific form UI
-3. Create KYC.tsx page with step-by-step KYC wizard (Personal Info -> ID Upload -> Selfie -> Review)
-4. Add KYC status banner to Payments page that links to KYC flow
-5. Add KYC navigation item to sidebar
-6. Wire KYC status from backend to payment limits and badge display
+1. Create `src/frontend/src/config/alpacaConfig.ts` with API key, secret, and base URL for live trading
+2. Create `src/frontend/src/hooks/useAlpacaAccount.ts` -- fetches Alpaca account info and positions
+3. Create `src/frontend/src/hooks/useAlpacaOrders.ts` -- fetches Alpaca order history
+4. Create `src/frontend/src/utils/alpacaApi.ts` -- utility functions for placing buy/sell market orders via Alpaca REST API using fetch with Authorization header
+5. Update `TradeModal` to call `alpacaApi.placeOrder` in Real mode, show "LIVE BROKER" badge
+6. Update `OrderPanel` in Charts.tsx to call `alpacaApi.placeOrder` in Real mode
+7. Update `Portfolio` page to show Alpaca positions when in Real mode
+8. Update `History` page to show Alpaca orders when in Real mode
+9. Update `Dashboard` to show Alpaca account card in Real mode
+10. Validate and deploy

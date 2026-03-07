@@ -25,11 +25,13 @@ import {
   useSell,
   useTrades,
 } from "@/hooks/useQueries";
+import { placeAlpacaOrder, toAlpacaSymbol } from "@/utils/alpacaApi";
 import { formatChange, formatCurrency, formatTimestamp } from "@/utils/format";
 import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
+  Building2,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -292,27 +294,26 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
       return;
     }
 
-    // Real mode: require login and use backend
-    if (!isLoggedIn) {
-      login();
-      return;
-    }
+    // Real mode: route to Alpaca Live
     if (qty <= 0) {
       toast.error("Enter a valid quantity");
       return;
     }
+    const alpacaSymbol = toAlpacaSymbol(symbol);
+    if (!alpacaSymbol) {
+      toast.error("Not available on Alpaca", {
+        description: `${symbol} (metals/indices) cannot be traded via Alpaca Live.`,
+      });
+      return;
+    }
     try {
-      if (side === "buy") {
-        await buy.mutateAsync({ symbol, quantity: qty });
-        toast.success(`Bought ${qty} ${symbol}`, {
-          description: `Total: ${formatCurrency(estimatedTotal)}`,
-        });
-      } else {
-        await sell.mutateAsync({ symbol, quantity: qty });
-        toast.success(`Sold ${qty} ${symbol}`, {
-          description: `Total: ${formatCurrency(estimatedTotal)}`,
-        });
-      }
+      await placeAlpacaOrder(alpacaSymbol, qty, side);
+      toast.success(
+        `[LIVE] ${side === "buy" ? "Bought" : "Sold"} ${qty} ${symbol}`,
+        {
+          description: "Order sent to Alpaca Live Market",
+        },
+      );
       setSuccessInfo({ side, qty, total: estimatedTotal });
       setShowConfirm(false);
 
@@ -343,8 +344,8 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
       setQuantity("");
       setTimeout(() => setSuccessInfo(null), 3000);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Transaction failed";
-      toast.error("Trade failed", { description: msg });
+      const msg = err instanceof Error ? err.message : "Order failed";
+      toast.error("Alpaca order failed", { description: msg });
     }
   };
 
@@ -410,31 +411,45 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
             </button>
           </div>
         ) : (
-          <div
-            data-ocid="order.header_real_badge"
-            className="inline-flex items-center gap-1.5 px-2 py-1 rounded font-mono text-[10px] font-bold uppercase tracking-widest"
-            style={{
-              background: "oklch(0.14 0.06 145 / 0.80)",
-              border: "1px solid oklch(0.38 0.14 145 / 0.60)",
-              color: "oklch(0.75 0.18 145)",
-            }}
-          >
-            <ShieldCheck style={{ width: 9, height: 9, flexShrink: 0 }} />
-            <span>Real</span>
-            <button
-              type="button"
-              data-ocid="order.header.switch_to_demo.button"
-              onClick={() => setShowSwitchToDemoDialog(true)}
-              className="flex items-center gap-1 ml-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider transition-all duration-150 hover:opacity-90 active:scale-95"
+          <div className="flex items-center gap-1">
+            <div
+              data-ocid="order.header_alpaca_badge"
+              className="inline-flex items-center gap-1 px-1.5 py-1 rounded font-mono text-[9px] font-bold uppercase tracking-widest"
               style={{
-                background: "oklch(0.22 0.10 300 / 0.85)",
-                border: "1px solid oklch(0.40 0.16 300 / 0.60)",
-                color: "oklch(0.78 0.18 300)",
+                background: "oklch(0.14 0.06 145 / 0.80)",
+                border: "1px solid oklch(0.38 0.14 145 / 0.60)",
+                color: "oklch(0.75 0.18 145)",
               }}
             >
-              <FlaskConical style={{ width: 8, height: 8 }} />
-              Go Demo
-            </button>
+              <Building2 style={{ width: 8, height: 8, flexShrink: 0 }} />
+              <span>Alpaca</span>
+            </div>
+            <div
+              data-ocid="order.header_real_badge"
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded font-mono text-[10px] font-bold uppercase tracking-widest"
+              style={{
+                background: "oklch(0.14 0.06 145 / 0.80)",
+                border: "1px solid oklch(0.38 0.14 145 / 0.60)",
+                color: "oklch(0.75 0.18 145)",
+              }}
+            >
+              <ShieldCheck style={{ width: 9, height: 9, flexShrink: 0 }} />
+              <span>Real</span>
+              <button
+                type="button"
+                data-ocid="order.header.switch_to_demo.button"
+                onClick={() => setShowSwitchToDemoDialog(true)}
+                className="flex items-center gap-1 ml-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider transition-all duration-150 hover:opacity-90 active:scale-95"
+                style={{
+                  background: "oklch(0.22 0.10 300 / 0.85)",
+                  border: "1px solid oklch(0.40 0.16 300 / 0.60)",
+                  color: "oklch(0.78 0.18 300)",
+                }}
+              >
+                <FlaskConical style={{ width: 8, height: 8 }} />
+                Go Demo
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -735,16 +750,16 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
                   </div>
                 </div>
 
-                {/* Live account warning */}
-                {isRealAccount && isLoggedIn && (
+                {/* Alpaca Live account warning */}
+                {isRealAccount && (
                   <div
                     data-ocid="order.confirm_live_warning"
                     className="flex items-start gap-2 rounded-md border border-amber-800/60 bg-amber-950/30 px-3 py-2.5"
                   >
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+                    <Building2 className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
                     <p className="text-[10px] font-mono text-amber-300/90 leading-snug">
                       <span className="font-bold text-amber-400">
-                        LIVE ACCOUNT
+                        ALPACA LIVE
                       </span>{" "}
                       — Real funds will be moved when you confirm.
                     </p>
@@ -1316,18 +1331,18 @@ export function OrderPanel({ symbol, asset, onOrderPlaced }: OrderPanelProps) {
                   </div>
                 </div>
 
-                {/* ── Live account warning ────────────────────────────── */}
-                {isRealAccount && isLoggedIn && (
+                {/* ── Alpaca Live account warning ─────────────────────── */}
+                {isRealAccount && (
                   <div
                     data-ocid="order.live_account_warning"
                     className="flex items-start gap-2 rounded-md border border-amber-800/60 bg-amber-950/30 px-3 py-2.5"
                   >
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+                    <Building2 className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
                     <p className="text-[10px] font-mono text-amber-300/90 leading-snug">
                       <span className="font-bold text-amber-400">
-                        LIVE ACCOUNT
+                        ALPACA LIVE
                       </span>{" "}
-                      — Real funds will be used for this order.
+                      — Order will be sent to Alpaca live market.
                     </p>
                   </div>
                 )}
